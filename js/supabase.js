@@ -2,11 +2,16 @@
 (() => {
   "use strict";
 
-  const SUPABASE_URL = "https://qjywimxvejnkfbatukut.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_GXCZjhC8Y-bsq9AwngaAQ_nQziTHu6";
+  const SUPABASE_URL =
+    "https://qjywimxvejnkfbatukut.supabase.co";
+
+  const SUPABASE_KEY =
+    "sb_publishable_GXCZjh_C8Y-bsq9AwngaAQ_nQziTHu6";
 
   if (!window.supabase) {
-    console.error("Supabase library is not loaded.");
+    console.error(
+      "Supabase library is missing. Check the script order."
+    );
     return;
   }
 
@@ -14,4 +19,6 @@
     SUPABASE_URL,
     SUPABASE_KEY
   );
+
+  console.log("Supabase client initialized.");
 })();
