@@ -54,7 +54,7 @@
       status: "Pending"
     };
 
-    const { error } = await db.from("orders").insert(order);
+    const { error } = await db.from("Orders").insert(order);
 
     if (error) {
       status.textContent = "Order failed: " + error.message;
