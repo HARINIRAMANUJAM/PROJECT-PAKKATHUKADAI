@@ -12,25 +12,29 @@
   const status = document.getElementById("checkout-status");
   const button = document.getElementById("place-order-button");
 
+  const getShop = item =>
+    item.shop || item.shop_name || "Local shop";
+
+  const getItemTotal = item =>
+    Number(item.price) * Number(item.quantity);
+
   const total = cart.reduce(
-    (sum, item) =>
-      sum + Number(item.price) * Number(item.quantity),
+    (sum, item) => sum + getItemTotal(item),
     0
   );
 
   if (itemsBox) {
     itemsBox.replaceChildren();
 
-    if (cart.length) {
+    if (cart.length === 0) {
+      itemsBox.textContent = "Your cart is empty.";
+    } else {
       cart.forEach(item => {
         const p = document.createElement("p");
         p.textContent =
-          `${item.name} × ${Number(item.quantity)}` +
-          ` — ${item.shop || item.shop_name || "Local shop"}`;
+          `${item.name} × ${Number(item.quantity)} — ${getShop(item)}`;
         itemsBox.appendChild(p);
       });
-    } else {
-      itemsBox.textContent = "Your cart is empty.";
     }
   }
 
@@ -49,8 +53,7 @@
     const db = window.supabaseClient;
 
     if (!db) {
-      status.textContent =
-        "Database connection is not configured yet.";
+      status.textContent = "Database connection is not configured.";
       return;
     }
 
@@ -65,12 +68,17 @@
       const address =
         document.getElementById("delivery-address").value.trim();
 
-      // Group cart items by shop.
+      if (!customerName || !phone || !address) {
+        status.textContent = "Please fill in all checkout details.";
+        button.disabled = false;
+        return;
+      }
+
+      // Group items by their actual shop name.
       const shopGroups = new Map();
 
       cart.forEach(item => {
-        const shopName =
-          item.shop || item.shop_name || "Local shop";
+        const shopName = getShop(item);
 
         if (!shopGroups.has(shopName)) {
           shopGroups.set(shopName, []);
@@ -79,25 +87,23 @@
         shopGroups.get(shopName).push(item);
       });
 
-      // Create one order row for each shop.
+      // Build one database row per shop.
       const orders = Array.from(shopGroups.entries()).map(
         ([shopName, items]) => ({
           customer_name: customerName,
           phone,
           delivery_address: address,
-          items: items.map(item => ({
-            ...item,
-            shop: item.shop || item.shop_name || shopName
-          })),
+          items,
           total: items.reduce(
-            (sum, item) =>
-              sum +
-              Number(item.price) * Number(item.quantity),
+            (sum, item) => sum + getItemTotal(item),
             0
           ),
           status: "Pending"
         })
       );
+
+      console.log("Shop groups:", [...shopGroups.keys()]);
+      console.log("Orders being submitted:", orders);
 
       const { error } = await db
         .from("Orders")
@@ -112,8 +118,7 @@
       sessionStorage.removeItem("pakkathuCart");
 
       status.textContent =
-        `Order placed successfully! ` +
-        `${orders.length} shop order(s) created.`;
+        `Order placed successfully! ${orders.length} shop order(s) created.`;
 
       form.reset();
 
@@ -127,8 +132,7 @@
 
       button.disabled = true;
     } catch (error) {
-      status.textContent =
-        "Order failed: " + error.message;
+      status.textContent = "Order failed: " + error.message;
       button.disabled = false;
     }
   });
