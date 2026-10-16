@@ -8,13 +8,14 @@
   let cart = [];
   let activeCategory = "all";
 
-  const money = (value) =>
-    "₹" + Number(value || 0).toFixed(2);
+  const money = (value) => "₹" + Number(value || 0).toFixed(2);
 
   function loadCart() {
     try {
-      cart = JSON.parse(sessionStorage.getItem("pakkathuCart") || "[]");
-      if (!Array.isArray(cart)) cart = [];
+      const saved = JSON.parse(
+        sessionStorage.getItem("pakkathuCart") || "[]"
+      );
+      cart = Array.isArray(saved) ? saved : [];
     } catch {
       cart = [];
     }
@@ -53,6 +54,7 @@
   function renderProducts() {
     const grid = $("product-grid");
     const status = $("product-status");
+
     if (!grid) return;
 
     const search = ($("product-search")?.value || "")
@@ -77,13 +79,15 @@
     grid.replaceChildren();
 
     if (!filtered.length) {
-      status.textContent = products.length
-        ? "No matching products found. Try another search or filter."
-        : "No products are available yet.";
+      if (status) {
+        status.textContent = products.length
+          ? "No matching products found. Try another search or filter."
+          : "No products are available yet.";
+      }
       return;
     }
 
-    status.textContent = `${filtered.length} product(s) found`;
+    if (status) status.textContent = `${filtered.length} product(s) found`;
 
     filtered.forEach((product) => {
       const stock = availableStock(product);
@@ -128,7 +132,6 @@
       addButton.className = "primary-button";
       addButton.textContent = remaining > 0 ? "Add to cart" : "Unavailable";
       addButton.disabled = remaining <= 0;
-
       addButton.addEventListener("click", () => addToCart(product.id));
 
       info.append(title, shopName, price, stockText, addButton);
@@ -157,7 +160,7 @@
     );
 
     if (existing) {
-      existing.quantity += 1;
+      existing.quantity = Number(existing.quantity) + 1;
     } else {
       cart.push({
         id: product.id,
@@ -178,14 +181,16 @@
     const item = cart.find(
       (entry) => String(entry.id) === String(productId)
     );
-
     if (!item) return;
 
     const product = products.find(
       (entry) => String(entry.id) === String(productId)
     );
 
-    const stock = product ? availableStock(product) : Number(item.stock || 0);
+    const stock = product
+      ? availableStock(product)
+      : Number(item.stock || 0);
+
     const nextQuantity = Number(item.quantity) + change;
 
     if (nextQuantity > stock) {
@@ -225,11 +230,13 @@
       row.className = "cart-item";
 
       const details = document.createElement("div");
+
       const name = document.createElement("h3");
       name.textContent = item.name;
 
       const amount = document.createElement("p");
-      amount.textContent = `${money(item.price)} × ${quantity} = ${money(subtotal)}`;
+      amount.textContent =
+        `${money(item.price)} × ${quantity} = ${money(subtotal)}`;
 
       const shop = document.createElement("p");
       shop.textContent = item.shop || "Local shop";
@@ -288,11 +295,11 @@
 
   function setupCartButtons() {
     $("open-cart")?.addEventListener("click", () => {
-      $("cart-panel").hidden = false;
+      if ($("cart-panel")) $("cart-panel").hidden = false;
     });
 
     $("close-cart")?.addEventListener("click", () => {
-      $("cart-panel").hidden = true;
+      if ($("cart-panel")) $("cart-panel").hidden = true;
     });
 
     $("checkout-button")?.addEventListener("click", () => {
@@ -338,12 +345,9 @@
 
     try {
       if (!window.supabaseClient) {
-        if (status) {
-          status.textContent =
-            "Database connection will be enabled in the integration step.";
-        }
-        renderProducts();
-        return;
+        throw new Error(
+          "Supabase client is missing. Check the script order in index.html."
+        );
       }
 
       const { data, error } = await window.supabaseClient
@@ -358,10 +362,17 @@
       populateShopFilter();
       renderProducts();
     } catch (error) {
-      console.error("Product loading failed:", error);
+      console.error("Product loading failed:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        status: error.status
+      });
+
       if (status) {
         status.textContent =
-          "Could not load products. Please check the database connection and table permissions.";
+          "Could not load products. Please check the Console for the database error.";
       }
     }
   }
