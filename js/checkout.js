@@ -13,19 +13,30 @@
   const button = document.getElementById("place-order-button");
 
   const total = cart.reduce(
-    (sum, item) => sum + Number(item.price) * Number(item.quantity),
+    (sum, item) =>
+      sum + Number(item.price) * Number(item.quantity),
     0
   );
 
   if (itemsBox) {
-    itemsBox.innerHTML = cart.length
-      ? cart.map(item =>
-          `<p>${String(item.name)} × ${Number(item.quantity)}</p>`
-        ).join("")
-      : "<p>Your cart is empty.</p>";
+    itemsBox.replaceChildren();
+
+    if (cart.length) {
+      cart.forEach(item => {
+        const p = document.createElement("p");
+        p.textContent =
+          `${item.name} × ${Number(item.quantity)}` +
+          ` — ${item.shop || item.shop_name || "Local shop"}`;
+        itemsBox.appendChild(p);
+      });
+    } else {
+      itemsBox.textContent = "Your cart is empty.";
+    }
   }
 
-  if (totalBox) totalBox.textContent = `₹${total.toFixed(2)}`;
+  if (totalBox) {
+    totalBox.textContent = `₹${total.toFixed(2)}`;
+  }
 
   form?.addEventListener("submit", async event => {
     event.preventDefault();
@@ -38,35 +49,87 @@
     const db = window.supabaseClient;
 
     if (!db) {
-      status.textContent = "Database connection is not configured yet.";
+      status.textContent =
+        "Database connection is not configured yet.";
       return;
     }
 
     button.disabled = true;
     status.textContent = "Placing your order...";
 
-    const order = {
-      customer_name: document.getElementById("customer-name").value.trim(),
-      phone: document.getElementById("customer-phone").value.trim(),
-      delivery_address: document.getElementById("delivery-address").value.trim(),
-      items: cart,
-      total,
-      status: "Pending"
-    };
+    try {
+      const customerName =
+        document.getElementById("customer-name").value.trim();
+      const phone =
+        document.getElementById("customer-phone").value.trim();
+      const address =
+        document.getElementById("delivery-address").value.trim();
 
-    const { error } = await db.from("Orders").insert(order);
+      // Group cart items by shop.
+      const shopGroups = new Map();
 
-    if (error) {
-      status.textContent = "Order failed: " + error.message;
+      cart.forEach(item => {
+        const shopName =
+          item.shop || item.shop_name || "Local shop";
+
+        if (!shopGroups.has(shopName)) {
+          shopGroups.set(shopName, []);
+        }
+
+        shopGroups.get(shopName).push(item);
+      });
+
+      // Create one order row for each shop.
+      const orders = Array.from(shopGroups.entries()).map(
+        ([shopName, items]) => ({
+          customer_name: customerName,
+          phone,
+          delivery_address: address,
+          items: items.map(item => ({
+            ...item,
+            shop: item.shop || item.shop_name || shopName
+          })),
+          total: items.reduce(
+            (sum, item) =>
+              sum +
+              Number(item.price) * Number(item.quantity),
+            0
+          ),
+          status: "Pending"
+        })
+      );
+
+      const { error } = await db
+        .from("Orders")
+        .insert(orders);
+
+      if (error) {
+        status.textContent = "Order failed: " + error.message;
+        button.disabled = false;
+        return;
+      }
+
+      sessionStorage.removeItem("pakkathuCart");
+
+      status.textContent =
+        `Order placed successfully! ` +
+        `${orders.length} shop order(s) created.`;
+
+      form.reset();
+
+      if (itemsBox) {
+        itemsBox.textContent = "Order confirmed!";
+      }
+
+      if (totalBox) {
+        totalBox.textContent = "₹0.00";
+      }
+
+      button.disabled = true;
+    } catch (error) {
+      status.textContent =
+        "Order failed: " + error.message;
       button.disabled = false;
-      return;
     }
-
-    sessionStorage.removeItem("pakkathuCart");
-    status.textContent = "Order placed successfully!";
-    form.reset();
-    if (itemsBox) itemsBox.innerHTML = "<p>Order confirmed!</p>";
-    if (totalBox) totalBox.textContent = "₹0.00";
-    button.disabled = true;
   });
 })();
