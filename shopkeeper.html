@@ -1,0 +1,267 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#176b45">
+  <title>Shopkeeper Dashboard | Pakkathu Kadai</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/shopkeeper.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html">
+      <span class="brand-icon">PK</span>
+      <span>
+        <strong>Pakkathu Kadai</strong>
+        <small>Shopkeeper workspace</small>
+      </span>
+    </a>
+    <nav class="main-nav">
+      <a href="index.html">Customer Store</a>
+      <a href="#inventory">Inventory</a>
+      <a href="#bulk-purchase">Shared Purchasing</a>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <section class="dashboard-welcome">
+      <p class="eyebrow">SHOPKEEPER WORKSPACE</p>
+      <h1>Your shop. Your business. Smarter tools.</h1>
+      <p>
+        Manage stock, monitor products and explore group purchasing
+        opportunities with other neighbourhood shops.
+      </p>
+    </section>
+
+    <section class="dashboard-stats" aria-label="Shop overview">
+      <article class="stat-card">
+        <span>📦</span>
+        <p>Total products</p>
+        <strong id="stat-products">—</strong>
+      </article>
+      <article class="stat-card">
+        <span>🛒</span>
+        <p>Low-stock products</p>
+        <strong id="stat-low-stock">—</strong>
+      </article>
+      <article class="stat-card">
+        <span>🤝</span>
+        <p>Purchase groups</p>
+        <strong id="stat-groups">—</strong>
+      </article>
+    </section>
+
+    <section class="dashboard-section" id="inventory">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">STOCK CONTROL</p>
+          <h2>Product inventory</h2>
+          <p>Review your products and stock quantities.</p>
+        </div>
+      </div>
+
+      <div class="dashboard-toolbar">
+        <label for="inventory-search" class="visually-hidden">
+          Search inventory
+        </label>
+        <input
+          id="inventory-search"
+          type="search"
+          placeholder="Search your products..."
+        >
+        <button class="primary-button" id="add-product-button" type="button">
+          + Add product
+        </button>
+      </div>
+
+      <p id="inventory-status" role="status" aria-live="polite">
+        Inventory will appear after the database is connected.
+      </p>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Shop</th>
+              <th>Price</th>
+              <th>Stock</th>
+              <th>Availability</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-body">
+            <tr>
+              <td colspan="5">
+                Your product inventory will load here.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="help-text">
+        Inventory editing will be enabled after connecting the database
+        and setting up shopkeeper access.
+      </p>
+    </section>
+
+    <section class="dashboard-section" id="bulk-purchase">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">YOUR INNOVATION</p>
+          <h2>Shared wholesale purchasing</h2>
+          <p>
+            Collaborate with nearby shopkeepers to explore combined
+            purchases from suppliers.
+          </p>
+        </div>
+        <span class="feature-icon">🤝</span>
+      </div>
+
+      <div class="innovation-grid">
+        <article class="innovation-card">
+          <span>🧺</span>
+          <h3>Create a purchase request</h3>
+          <p>
+            Choose a product and quantity your shop needs.
+            Other participating shops can express interest.
+          </p>
+          <button
+            class="secondary-button"
+            id="create-purchase-button"
+            type="button"
+          >
+            Create request
+          </button>
+        </article>
+
+        <article class="innovation-card">
+          <span>🏪</span>
+          <h3>Join other shops</h3>
+          <p>
+            Combine demand for common items such as rice, oil
+            and other grocery essentials.
+          </p>
+          <button
+            class="secondary-button"
+            id="browse-purchases-button"
+            type="button"
+          >
+            Browse requests
+          </button>
+        </article>
+
+        <article class="innovation-card">
+          <span>📊</span>
+          <h3>Compare supplier offers</h3>
+          <p>
+            Compare available supplier prices and estimated
+            savings before deciding to place a combined order.
+          </p>
+          <span class="feature-note">Planned feature</span>
+        </article>
+      </div>
+
+      <div id="purchase-workspace" hidden>
+        <h3 id="purchase-form-heading">Purchase request</h3>
+
+        <form id="purchase-form">
+          <label for="bulk-product">Product name</label>
+          <input
+            id="bulk-product"
+            name="product"
+            type="text"
+            placeholder="e.g. Rice"
+            required
+          >
+
+          <label for="bulk-quantity">Quantity required</label>
+          <input
+            id="bulk-quantity"
+            name="quantity"
+            type="number"
+            min="1"
+            step="1"
+            placeholder="e.g. 100"
+            required
+          >
+
+          <label for="bulk-unit">Unit</label>
+          <select id="bulk-unit" name="unit" required>
+            <option value="kg">Kilograms (kg)</option>
+            <option value="litre">Litres</option>
+            <option value="pieces">Pieces</option>
+            <option value="bags">Bags</option>
+          </select>
+
+          <label for="bulk-notes">Additional details</label>
+          <textarea
+            id="bulk-notes"
+            name="notes"
+            rows="3"
+            placeholder="Preferred price, delivery needs, etc."
+          ></textarea>
+
+          <button class="primary-button" type="submit">
+            Save request
+          </button>
+          <button
+            class="secondary-button"
+            id="cancel-purchase-button"
+            type="button"
+          >
+            Cancel
+          </button>
+        </form>
+      </div>
+
+      <div id="purchase-status" role="status" aria-live="polite"></div>
+
+      <div id="purchase-list">
+        <p class="help-text">
+          Shared purchase requests will appear here once the feature
+          and its database are connected.
+        </p>
+      </div>
+    </section>
+
+    <section class="dashboard-section">
+      <p class="eyebrow">FUTURE UPGRADES</p>
+      <h2>More tools for your shop</h2>
+
+      <div class="innovation-grid">
+        <article class="innovation-card">
+          <span>📷</span>
+          <h3>Barcode inventory</h3>
+          <p>Scan products to help update stock more easily.</p>
+          <span class="feature-note">Planned feature</span>
+        </article>
+
+        <article class="innovation-card">
+          <span>🎙️</span>
+          <h3>Voice stock updates</h3>
+          <p>Explore voice-based product and quantity entry.</p>
+          <span class="feature-note">Planned feature</span>
+        </article>
+
+        <article class="innovation-card">
+          <span>📣</span>
+          <h3>Brand advertisements</h3>
+          <p>Explore promotional placements and potential ad revenue.</p>
+          <a href="index.html#offers">View customer offers</a>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a class="brand" href="index.html">
+      <span class="brand-icon">PK</span>
+      <strong>Pakkathu Kadai</strong>
+    </a>
+    <p>Helping neighbourhood shops grow together.</p>
+  </footer>
+</body>
+</html>
