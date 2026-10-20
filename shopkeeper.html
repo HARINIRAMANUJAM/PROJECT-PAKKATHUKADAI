@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#176b45">
   <title>Shopkeeper Dashboard | Pakkathu Kadai</title>
   <link rel="stylesheet" href="css/style.css">
@@ -30,7 +30,7 @@
     <section class="dashboard-welcome">
       <p class="eyebrow">SHOPKEEPER WORKSPACE</p>
       <h1>Your shop. Your business. Smarter tools.</h1>
-      <p>Manage inventory and explore shared wholesale purchasing with neighbourhood shops.</p>
+      <p>Manage your inventory and explore shared wholesale purchasing with neighbourhood shops.</p>
     </section>
 
     <section class="dashboard-stats" aria-label="Shop overview">
@@ -48,8 +48,8 @@
 
       <article class="stat-card">
         <span>🤝</span>
-        <p>Purchase groups</p>
-        <strong id="stat-groups">0</strong>
+        <p>Shop groups</p>
+        <strong id="stat-groups">—</strong>
       </article>
     </section>
 
@@ -58,20 +58,23 @@
         <div>
           <p class="eyebrow">STOCK CONTROL</p>
           <h2>Product inventory</h2>
-          <p>Search, review and add products to your inventory.</p>
+          <p>Search products and monitor stock availability.</p>
         </div>
       </div>
 
       <div class="dashboard-toolbar">
-        <label class="visually-hidden" for="inventory-search">Search inventory</label>
-        <input id="inventory-search" type="search" placeholder="Search products or shops...">
-        <button class="primary-button" id="add-product-button" type="button">
-          + Add product
-        </button>
+        <label for="inventory-search" class="visually-hidden">
+          Search inventory
+        </label>
+        <input
+          id="inventory-search"
+          type="search"
+          placeholder="Search products or shops..."
+        >
       </div>
 
       <p id="inventory-status" role="status" aria-live="polite">
-        Loading inventory...
+        Connecting to database...
       </p>
 
       <div class="table-wrapper">
@@ -85,7 +88,6 @@
               <th>Availability</th>
             </tr>
           </thead>
-
           <tbody id="inventory-body">
             <tr>
               <td colspan="5">Loading products...</td>
@@ -95,7 +97,7 @@
       </div>
 
       <p class="help-text">
-        Low-stock products are those with five or fewer units remaining.
+        Products with five or fewer units are marked as low stock.
       </p>
     </section>
 
@@ -104,7 +106,7 @@
         <div>
           <p class="eyebrow">YOUR INNOVATION</p>
           <h2>Shared wholesale purchasing</h2>
-          <p>Collaborate with neighbourhood shops to combine purchasing demand.</p>
+          <p>Combine purchasing demand with other neighbourhood shops.</p>
         </div>
         <span class="feature-icon">🤝</span>
       </div>
@@ -113,7 +115,7 @@
         <article class="innovation-card">
           <span>🧺</span>
           <h3>Create a purchase request</h3>
-          <p>Specify a product and quantity your shop needs.</p>
+          <p>Specify the products and quantities your shop needs.</p>
           <button class="secondary-button" id="create-purchase-button" type="button">
             Create request
           </button>
@@ -122,7 +124,7 @@
         <article class="innovation-card">
           <span>🏪</span>
           <h3>Join other shops</h3>
-          <p>Explore purchase requests from participating shops.</p>
+          <p>Explore opportunities to combine orders for common essentials.</p>
           <button class="secondary-button" id="browse-purchases-button" type="button">
             Browse requests
           </button>
@@ -137,7 +139,7 @@
       </div>
 
       <div id="purchase-workspace" hidden>
-        <h3 id="purchase-form-heading">Purchase request</h3>
+        <h3>Create a purchase request</h3>
 
         <form id="purchase-form">
           <label for="bulk-product">Product name</label>
@@ -158,7 +160,7 @@
 
           <label for="bulk-notes">Additional details</label>
           <textarea id="bulk-notes" name="notes" rows="3"
-                    placeholder="Preferred price, delivery needs, etc."></textarea>
+                    placeholder="Preferred price or delivery requirements"></textarea>
 
           <button class="primary-button" type="submit">Save request</button>
           <button class="secondary-button" id="cancel-purchase-button" type="button">
@@ -167,10 +169,12 @@
         </form>
       </div>
 
-      <div id="purchase-status" role="status" aria-live="polite"></div>
+      <p id="purchase-status" role="status" aria-live="polite"></p>
 
       <div id="purchase-list">
-        <p class="help-text">Purchase requests will appear here.</p>
+        <p class="help-text">
+          Shared purchasing requests will appear here when database integration is implemented.
+        </p>
       </div>
     </section>
 
@@ -182,7 +186,7 @@
         <article class="innovation-card">
           <span>📷</span>
           <h3>Barcode inventory</h3>
-          <p>Scan products to help update stock.</p>
+          <p>Scan products to make stock updates easier.</p>
           <span class="feature-note">Planned feature</span>
         </article>
 
@@ -196,7 +200,7 @@
         <article class="innovation-card">
           <span>📣</span>
           <h3>Brand advertisements</h3>
-          <p>Explore promotional placements and potential ad revenue.</p>
+          <p>Explore promotional placements for local shops.</p>
           <a href="index.html#offers">View customer offers</a>
         </article>
       </div>
@@ -211,11 +215,9 @@
     <p>Helping neighbourhood shops grow together.</p>
   </footer>
 
-  <!-- Load Supabase before the dashboard scripts -->
+  <!-- Load Supabase first, then the inventory script -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
   <script src="js/shopkeeper.js"></script>
-  <script src="js/bulk-purchase.js"></script>
-  <script src="js/voice-stock.js"></script>
 </body>
 </html>
