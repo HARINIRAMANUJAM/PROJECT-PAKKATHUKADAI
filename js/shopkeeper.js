@@ -1,193 +1,198 @@
 
-document.addEventListener("DOMContentLoaded", () => {
-  const db = window.supabaseClient;
+(() => {
+  "use strict";
 
-  const main = document.querySelector("main.dashboard");
-  if (!main) return;
+  const db = () => window.supabaseClient;
 
-  const section = document.createElement("section");
-  section.className = "dashboard-section";
-  section.id = "order-management";
+  const status = document.getElementById("inventory-status");
+  const inventoryBody = document.getElementById("inventory-body");
+  const searchInput = document.getElementById("inventory-search");
+  const addButton = document.getElementById("add-product-button");
 
-  section.innerHTML = `
-    <div class="section-heading">
-      <div>
-        <p class="eyebrow">CUSTOMER ORDERS</p>
-        <h2>Order management</h2>
-        <p>Review orders and update their progress.</p>
-      </div>
-      <button class="secondary-button" id="refresh-orders" type="button">
-        Refresh
-      </button>
-    </div>
+  let products = [];
 
-    <p id="orders-status" role="status" aria-live="polite">
-      Loading orders...
-    </p>
-
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Order ID</th>
-            <th>Customer</th>
-            <th>Phone</th>
-            <th>Items</th>
-            <th>Total</th>
-            <th>Status</th>
-            <th>Update</th>
-          </tr>
-        </thead>
-        <tbody id="orders-body">
-          <tr><td colspan="7">Loading orders...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  const inventory = document.getElementById("inventory");
-  main.insertBefore(section, inventory ? inventory.nextSibling : main.firstChild);
-
-  const statusEl = section.querySelector("#orders-status");
-  const body = section.querySelector("#orders-body");
-  const refreshButton = section.querySelector("#refresh-orders");
-
-  function showMessage(message) {
-    statusEl.textContent = message;
-  }
-
-  function formatItems(items) {
-    if (!items) return "—";
-
-    if (Array.isArray(items)) {
-      return items.map(item => {
-        const name = item.name || item.product_name || "Product";
-        const qty = item.quantity ?? item.qty ?? 1;
-        return `${name} × ${qty}`;
-      }).join(", ");
-    }
-
-    if (typeof items === "object") {
-      return Object.entries(items)
-        .map(([name, value]) => {
-          if (value && typeof value === "object") {
-            return `${value.name || name} × ${value.quantity ?? value.qty ?? 1}`;
-          }
-          return `${name} × ${value}`;
-        })
-        .join(", ");
-    }
-
-    return String(items);
+  function showStatus(message, isError = false) {
+    if (!status) return;
+    status.textContent = message;
+    status.style.color = isError ? "#b42318" : "";
   }
 
   function escapeHTML(value) {
-    return String(value ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;",
+      '"': "&quot;", "'": "&#39;"
+    })[char]);
   }
 
-  async function loadOrders() {
-    if (!db) {
-      showMessage("Supabase client not found. Check js/supabase.js.");
-      body.innerHTML = "";
+  function updateStats() {
+    const productStat = document.getElementById("stat-products");
+    const lowStockStat = document.getElementById("stat-low-stock");
+    const groupStat = document.getElementById("stat-groups");
+
+    if (productStat) productStat.textContent = products.length;
+
+    if (lowStockStat) {
+      lowStockStat.textContent = products.filter(
+        p => Number(p.quantity) <= 5
+      ).length;
+    }
+
+    if (groupStat) {
+      groupStat.textContent = new Set(
+        products.map(p => p.shop_name).filter(Boolean)
+      ).size;
+    }
+  }
+
+  function renderInventory() {
+    if (!inventoryBody) return;
+
+    const query = (searchInput?.value || "").trim().toLowerCase();
+
+    const filtered = products.filter(p =>
+      `${p.name || ""} ${p.shop_name || ""}`
+        .toLowerCase().includes(query)
+    );
+
+    if (!filtered.length) {
+      inventoryBody.innerHTML =
+        '<tr><td colspan="5">No matching products found.</td></tr>';
       return;
     }
 
-    showMessage("Loading orders...");
-    refreshButton.disabled = true;
-
-    const { data, error } = await db
-      .from("Orders")
-      .select("id, customer_name, phone, items, total, status, created_at")
-      .order("created_at", { ascending: false });
-
-    refreshButton.disabled = false;
-
-    if (error) {
-      body.innerHTML = "";
-      showMessage("Could not load orders: " + error.message);
-      return;
-    }
-
-    if (!data || data.length === 0) {
-      body.innerHTML = `
-        <tr><td colspan="7">No orders found yet.</td></tr>
-      `;
-      showMessage("No orders to display.");
-      return;
-    }
-
-    body.innerHTML = data.map(order => {
-      const currentStatus = order.status || "Pending";
-      const statuses = ["Pending", "Confirmed", "Preparing", "Ready", "Delivered", "Cancelled"];
-
-      const options = statuses.map(status => `
-        <option value="${status}"
-          ${status.toLowerCase() === currentStatus.toLowerCase() ? "selected" : ""}>
-          ${status}
-        </option>
-      `).join("");
+    inventoryBody.innerHTML = filtered.map(p => {
+      const quantity = Number(p.quantity) || 0;
+      const availability = quantity <= 0
+        ? "Out of stock"
+        : quantity <= 5 ? "Low stock" : "Available";
 
       return `
         <tr>
-          <td>${escapeHTML(order.id)}</td>
-          <td>${escapeHTML(order.customer_name)}</td>
-          <td>${escapeHTML(order.phone)}</td>
-          <td>${escapeHTML(formatItems(order.items))}</td>
-          <td>₹${Number(order.total || 0).toFixed(2)}</td>
-          <td>${escapeHTML(currentStatus)}</td>
-          <td>
-            <select class="order-status-select"
-              data-order-id="${escapeHTML(order.id)}"
-              aria-label="Status for order ${escapeHTML(order.id)}">
-              ${options}
-            </select>
-            <button class="secondary-button save-order-status"
-              data-order-id="${escapeHTML(order.id)}" type="button">
-              Save
-            </button>
-          </td>
+          <td>${escapeHTML(p.name)}</td>
+          <td>${escapeHTML(p.shop_name || "Local shop")}</td>
+          <td>₹${Number(p.price || 0).toFixed(2)}</td>
+          <td>${quantity} ${escapeHTML(p.unit || "")}</td>
+          <td>${availability}</td>
         </tr>
       `;
     }).join("");
-
-    showMessage(`${data.length} order(s) loaded.`);
   }
 
-  body.addEventListener("click", async event => {
-    const button = event.target.closest(".save-order-status");
-    if (!button) return;
-
-    const id = button.dataset.orderId;
-    const select = body.querySelector(
-      `.order-status-select[data-order-id="${CSS.escape(id)}"]`
-    );
-
-    if (!select) return;
-
-    button.disabled = true;
-    showMessage(`Updating order ${id}...`);
-
-    const { error } = await db
-      .from("Orders")
-      .update({ status: select.value })
-      .eq("id", id);
-
-    button.disabled = false;
-
-    if (error) {
-      showMessage("Could not update order: " + error.message);
+  async function loadInventory() {
+    if (!db()) {
+      showStatus("Supabase connection not found. Check js/supabase.js.", true);
       return;
     }
 
-    showMessage(`Order ${id} updated to ${select.value}.`);
-    await loadOrders();
-  });
+    showStatus("Loading inventory...");
 
-  refreshButton.addEventListener("click", loadOrders);
-  loadOrders();
-});
+    const { data, error } = await db()
+      .from("Products")
+      .select("id, name, price, quantity, shop_name, unit")
+      .order("id", { ascending: true });
+
+    if (error) {
+      showStatus("Could not load inventory: " + error.message, true);
+      return;
+    }
+
+    products = data || [];
+    renderInventory();
+    updateStats();
+    showStatus(`${products.length} products loaded.`);
+  }
+
+  async function addProduct() {
+    if (!db()) {
+      showStatus("Database connection not found.", true);
+      return;
+    }
+
+    const name = prompt("Product name:");
+    if (name === null || !name.trim()) return;
+
+    const priceText = prompt("Price in ₹:");
+    if (priceText === null || priceText.trim() === "") return;
+
+    const quantityText = prompt("Available quantity:");
+    if (quantityText === null || quantityText.trim() === "") return;
+
+    const shopName = prompt("Shop name:");
+    if (shopName === null || !shopName.trim()) return;
+
+    const unit = prompt("Unit (kg, litre, pieces, etc.):", "pieces");
+    if (unit === null || !unit.trim()) return;
+
+    const price = Number(priceText);
+    const quantity = Number(quantityText);
+
+    if (!Number.isFinite(price) || price < 0) {
+      alert("Enter a valid price.");
+      return;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 0) {
+      alert("Quantity must be a non-negative whole number.");
+      return;
+    }
+
+    addButton.disabled = true;
+    showStatus("Adding product...");
+
+    try {
+      const { error } = await db()
+        .from("Products")
+        .insert([{
+          name: name.trim(),
+          price,
+          quantity,
+          shop_name: shopName.trim(),
+          unit: unit.trim()
+        }]);
+
+      if (error) {
+        showStatus("Could not add product: " + error.message, true);
+        return;
+      }
+
+      showStatus("Product added successfully.");
+      await loadInventory();
+    } catch (error) {
+      showStatus("Error: " + error.message, true);
+    } finally {
+      addButton.disabled = false;
+    }
+  }
+
+  searchInput?.addEventListener("input", renderInventory);
+  addButton?.addEventListener("click", addProduct);
+
+  document.getElementById("create-purchase-button")
+    ?.addEventListener("click", () => {
+      const workspace = document.getElementById("purchase-workspace");
+      if (workspace) {
+        workspace.hidden = false;
+        workspace.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+
+  document.getElementById("browse-purchases-button")
+    ?.addEventListener("click", () => {
+      document.getElementById("purchase-list")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+  document.getElementById("cancel-purchase-button")
+    ?.addEventListener("click", () => {
+      const workspace = document.getElementById("purchase-workspace");
+      if (workspace) workspace.hidden = true;
+    });
+
+  document.getElementById("purchase-form")
+    ?.addEventListener("submit", event => {
+      event.preventDefault();
+      showStatus("Shared purchasing is not connected to the database yet.");
+    });
+
+  loadInventory();
+})();
