@@ -7,8 +7,8 @@
   <meta name="theme-color" content="#176b45">
   <title>Shopkeeper Dashboard | Pakkathu Kadai</title>
   <link rel="stylesheet" href="css/style.css">
-  <script src="js/shopkeeper.js" defer></script>
 </head>
+
 <body>
   <header class="site-header">
     <a class="brand" href="index.html">
@@ -18,6 +18,7 @@
         <small>Shopkeeper workspace</small>
       </span>
     </a>
+
     <nav class="main-nav">
       <a href="index.html">Customer Store</a>
       <a href="#inventory">Inventory</a>
@@ -29,10 +30,7 @@
     <section class="dashboard-welcome">
       <p class="eyebrow">SHOPKEEPER WORKSPACE</p>
       <h1>Your shop. Your business. Smarter tools.</h1>
-      <p>
-        Manage stock, monitor products and explore group purchasing
-        opportunities with other neighbourhood shops.
-      </p>
+      <p>Manage inventory and explore shared wholesale purchasing with neighbourhood shops.</p>
     </section>
 
     <section class="dashboard-stats" aria-label="Shop overview">
@@ -41,15 +39,17 @@
         <p>Total products</p>
         <strong id="stat-products">—</strong>
       </article>
+
       <article class="stat-card">
         <span>🛒</span>
         <p>Low-stock products</p>
         <strong id="stat-low-stock">—</strong>
       </article>
+
       <article class="stat-card">
         <span>🤝</span>
         <p>Purchase groups</p>
-        <strong id="stat-groups">—</strong>
+        <strong id="stat-groups">0</strong>
       </article>
     </section>
 
@@ -58,26 +58,20 @@
         <div>
           <p class="eyebrow">STOCK CONTROL</p>
           <h2>Product inventory</h2>
-          <p>Review your products and stock quantities.</p>
+          <p>Search, review and add products to your inventory.</p>
         </div>
       </div>
 
       <div class="dashboard-toolbar">
-        <label for="inventory-search" class="visually-hidden">
-          Search inventory
-        </label>
-        <input
-          id="inventory-search"
-          type="search"
-          placeholder="Search your products..."
-        >
+        <label class="visually-hidden" for="inventory-search">Search inventory</label>
+        <input id="inventory-search" type="search" placeholder="Search products or shops...">
         <button class="primary-button" id="add-product-button" type="button">
           + Add product
         </button>
       </div>
 
       <p id="inventory-status" role="status" aria-live="polite">
-        Inventory will appear after the database is connected.
+        Loading inventory...
       </p>
 
       <div class="table-wrapper">
@@ -91,19 +85,17 @@
               <th>Availability</th>
             </tr>
           </thead>
+
           <tbody id="inventory-body">
             <tr>
-              <td colspan="5">
-                Your product inventory will load here.
-              </td>
+              <td colspan="5">Loading products...</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <p class="help-text">
-        Inventory editing will be enabled after connecting the database
-        and setting up shopkeeper access.
+        Low-stock products are those with five or fewer units remaining.
       </p>
     </section>
 
@@ -112,10 +104,7 @@
         <div>
           <p class="eyebrow">YOUR INNOVATION</p>
           <h2>Shared wholesale purchasing</h2>
-          <p>
-            Collaborate with nearby shopkeepers to explore combined
-            purchases from suppliers.
-          </p>
+          <p>Collaborate with neighbourhood shops to combine purchasing demand.</p>
         </div>
         <span class="feature-icon">🤝</span>
       </div>
@@ -124,15 +113,8 @@
         <article class="innovation-card">
           <span>🧺</span>
           <h3>Create a purchase request</h3>
-          <p>
-            Choose a product and quantity your shop needs.
-            Other participating shops can express interest.
-          </p>
-          <button
-            class="secondary-button"
-            id="create-purchase-button"
-            type="button"
-          >
+          <p>Specify a product and quantity your shop needs.</p>
+          <button class="secondary-button" id="create-purchase-button" type="button">
             Create request
           </button>
         </article>
@@ -140,15 +122,8 @@
         <article class="innovation-card">
           <span>🏪</span>
           <h3>Join other shops</h3>
-          <p>
-            Combine demand for common items such as rice, oil
-            and other grocery essentials.
-          </p>
-          <button
-            class="secondary-button"
-            id="browse-purchases-button"
-            type="button"
-          >
+          <p>Explore purchase requests from participating shops.</p>
+          <button class="secondary-button" id="browse-purchases-button" type="button">
             Browse requests
           </button>
         </article>
@@ -156,10 +131,7 @@
         <article class="innovation-card">
           <span>📊</span>
           <h3>Compare supplier offers</h3>
-          <p>
-            Compare available supplier prices and estimated
-            savings before deciding to place a combined order.
-          </p>
+          <p>Compare supplier prices and potential savings.</p>
           <span class="feature-note">Planned feature</span>
         </article>
       </div>
@@ -169,24 +141,12 @@
 
         <form id="purchase-form">
           <label for="bulk-product">Product name</label>
-          <input
-            id="bulk-product"
-            name="product"
-            type="text"
-            placeholder="e.g. Rice"
-            required
-          >
+          <input id="bulk-product" name="product" type="text"
+                 placeholder="e.g. Rice" required>
 
           <label for="bulk-quantity">Quantity required</label>
-          <input
-            id="bulk-quantity"
-            name="quantity"
-            type="number"
-            min="1"
-            step="1"
-            placeholder="e.g. 100"
-            required
-          >
+          <input id="bulk-quantity" name="quantity" type="number"
+                 min="1" step="1" placeholder="e.g. 100" required>
 
           <label for="bulk-unit">Unit</label>
           <select id="bulk-unit" name="unit" required>
@@ -197,21 +157,11 @@
           </select>
 
           <label for="bulk-notes">Additional details</label>
-          <textarea
-            id="bulk-notes"
-            name="notes"
-            rows="3"
-            placeholder="Preferred price, delivery needs, etc."
-          ></textarea>
+          <textarea id="bulk-notes" name="notes" rows="3"
+                    placeholder="Preferred price, delivery needs, etc."></textarea>
 
-          <button class="primary-button" type="submit">
-            Save request
-          </button>
-          <button
-            class="secondary-button"
-            id="cancel-purchase-button"
-            type="button"
-          >
+          <button class="primary-button" type="submit">Save request</button>
+          <button class="secondary-button" id="cancel-purchase-button" type="button">
             Cancel
           </button>
         </form>
@@ -220,10 +170,7 @@
       <div id="purchase-status" role="status" aria-live="polite"></div>
 
       <div id="purchase-list">
-        <p class="help-text">
-          Shared purchase requests will appear here once the feature
-          and its database are connected.
-        </p>
+        <p class="help-text">Purchase requests will appear here.</p>
       </div>
     </section>
 
@@ -235,7 +182,7 @@
         <article class="innovation-card">
           <span>📷</span>
           <h3>Barcode inventory</h3>
-          <p>Scan products to help update stock more easily.</p>
+          <p>Scan products to help update stock.</p>
           <span class="feature-note">Planned feature</span>
         </article>
 
@@ -263,6 +210,8 @@
     </a>
     <p>Helping neighbourhood shops grow together.</p>
   </footer>
+
+  <!-- Load Supabase before the dashboard scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
   <script src="js/shopkeeper.js"></script>
