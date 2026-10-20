@@ -1,155 +1,193 @@
 
-(() => {
-  "use strict";
-
+document.addEventListener("DOMContentLoaded", () => {
   const db = window.supabaseClient;
 
-  const inventoryBody = document.getElementById("inventory-body");
-  const inventorySearch = document.getElementById("inventory-search");
-  const inventoryStatus = document.getElementById("inventory-status");
-  const addProductButton = document.getElementById("add-product-button");
+  const main = document.querySelector("main.dashboard");
+  if (!main) return;
 
-  const productStat = document.getElementById("stat-products");
-  const lowStockStat = document.getElementById("stat-low-stock");
-  const groupsStat = document.getElementById("stat-groups");
+  const section = document.createElement("section");
+  section.className = "dashboard-section";
+  section.id = "order-management";
 
-  let products = [];
+  section.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">CUSTOMER ORDERS</p>
+        <h2>Order management</h2>
+        <p>Review orders and update their progress.</p>
+      </div>
+      <button class="secondary-button" id="refresh-orders" type="button">
+        Refresh
+      </button>
+    </div>
 
-  const LOW_STOCK_LIMIT = 5;
+    <p id="orders-status" role="status" aria-live="polite">
+      Loading orders...
+    </p>
 
-  function cell(value) {
-    const td = document.createElement("td");
-    td.textContent = value ?? "";
-    return td;
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Phone</th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Update</th>
+          </tr>
+        </thead>
+        <tbody id="orders-body">
+          <tr><td colspan="7">Loading orders...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  const inventory = document.getElementById("inventory");
+  main.insertBefore(section, inventory ? inventory.nextSibling : main.firstChild);
+
+  const statusEl = section.querySelector("#orders-status");
+  const body = section.querySelector("#orders-body");
+  const refreshButton = section.querySelector("#refresh-orders");
+
+  function showMessage(message) {
+    statusEl.textContent = message;
   }
 
-  function renderInventory(search = "") {
-    if (!inventoryBody) return;
+  function formatItems(items) {
+    if (!items) return "—";
 
-    inventoryBody.replaceChildren();
-
-    const filtered = products.filter(product =>
-      [product.name, product.shop_name]
-        .some(value =>
-          String(value || "").toLowerCase().includes(search.toLowerCase())
-        )
-    );
-
-    if (!filtered.length) {
-      const tr = document.createElement("tr");
-      const td = cell("No matching products found.");
-      td.colSpan = 5;
-      tr.appendChild(td);
-      inventoryBody.appendChild(tr);
-      return;
+    if (Array.isArray(items)) {
+      return items.map(item => {
+        const name = item.name || item.product_name || "Product";
+        const qty = item.quantity ?? item.qty ?? 1;
+        return `${name} × ${qty}`;
+      }).join(", ");
     }
 
-    filtered.forEach(product => {
-      const tr = document.createElement("tr");
-      const quantity = Number(product.quantity) || 0;
+    if (typeof items === "object") {
+      return Object.entries(items)
+        .map(([name, value]) => {
+          if (value && typeof value === "object") {
+            return `${value.name || name} × ${value.quantity ?? value.qty ?? 1}`;
+          }
+          return `${name} × ${value}`;
+        })
+        .join(", ");
+    }
 
-      tr.append(
-        cell(product.name),
-        cell(product.shop_name),
-        cell(`₹${Number(product.price || 0).toFixed(2)}`),
-        cell(`${quantity} ${product.unit || ""}`),
-        cell(quantity <= LOW_STOCK_LIMIT ? "Low stock" : "Available")
-      );
-
-      inventoryBody.appendChild(tr);
-    });
+    return String(items);
   }
 
-  function updateStats() {
-    if (productStat) productStat.textContent = products.length;
-
-    if (lowStockStat) {
-      lowStockStat.textContent = products.filter(
-        product => Number(product.quantity) <= LOW_STOCK_LIMIT
-      ).length;
-    }
-
-    if (groupsStat) {
-      groupsStat.textContent = "—";
-    }
+  function escapeHTML(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
-  async function loadProducts() {
+  async function loadOrders() {
     if (!db) {
-      inventoryStatus.textContent =
-        "Database connection unavailable. Check js/supabase.js.";
+      showMessage("Supabase client not found. Check js/supabase.js.");
+      body.innerHTML = "";
       return;
     }
 
-    inventoryStatus.textContent = "Loading inventory...";
+    showMessage("Loading orders...");
+    refreshButton.disabled = true;
 
     const { data, error } = await db
-      .from("Products")
-      .select("id, name, price, quantity, shop_name, unit")
-      .order("id", { ascending: true });
+      .from("Orders")
+      .select("id, customer_name, phone, items, total, status, created_at")
+      .order("created_at", { ascending: false });
+
+    refreshButton.disabled = false;
 
     if (error) {
-      inventoryStatus.textContent =
-        "Could not load inventory: " + error.message;
+      body.innerHTML = "";
+      showMessage("Could not load orders: " + error.message);
       return;
     }
 
-    products = data || [];
-    renderInventory(inventorySearch?.value || "");
-    updateStats();
+    if (!data || data.length === 0) {
+      body.innerHTML = `
+        <tr><td colspan="7">No orders found yet.</td></tr>
+      `;
+      showMessage("No orders to display.");
+      return;
+    }
 
-    inventoryStatus.textContent =
-      `Loaded ${products.length} products.`;
+    body.innerHTML = data.map(order => {
+      const currentStatus = order.status || "Pending";
+      const statuses = ["Pending", "Confirmed", "Preparing", "Ready", "Delivered", "Cancelled"];
+
+      const options = statuses.map(status => `
+        <option value="${status}"
+          ${status.toLowerCase() === currentStatus.toLowerCase() ? "selected" : ""}>
+          ${status}
+        </option>
+      `).join("");
+
+      return `
+        <tr>
+          <td>${escapeHTML(order.id)}</td>
+          <td>${escapeHTML(order.customer_name)}</td>
+          <td>${escapeHTML(order.phone)}</td>
+          <td>${escapeHTML(formatItems(order.items))}</td>
+          <td>₹${Number(order.total || 0).toFixed(2)}</td>
+          <td>${escapeHTML(currentStatus)}</td>
+          <td>
+            <select class="order-status-select"
+              data-order-id="${escapeHTML(order.id)}"
+              aria-label="Status for order ${escapeHTML(order.id)}">
+              ${options}
+            </select>
+            <button class="secondary-button save-order-status"
+              data-order-id="${escapeHTML(order.id)}" type="button">
+              Save
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    showMessage(`${data.length} order(s) loaded.`);
   }
 
-  inventorySearch?.addEventListener("input", () => {
-    renderInventory(inventorySearch.value);
-  });
+  body.addEventListener("click", async event => {
+    const button = event.target.closest(".save-order-status");
+    if (!button) return;
 
-  addProductButton?.addEventListener("click", async () => {
-    const name = prompt("Enter product name:");
-    if (!name || !name.trim()) return;
-
-    const priceInput = prompt("Enter price in ₹:");
-    if (priceInput === null) return;
-
-    const quantityInput = prompt("Enter available quantity:");
-    if (quantityInput === null) return;
-
-    const shopName = prompt(
-      "Enter the shop name exactly as it appears in your existing products:"
+    const id = button.dataset.orderId;
+    const select = body.querySelector(
+      `.order-status-select[data-order-id="${CSS.escape(id)}"]`
     );
-    if (!shopName || !shopName.trim()) return;
 
-    const price = Number(priceInput);
-    const quantity = Number(quantityInput);
+    if (!select) return;
 
-    if (
-      !Number.isFinite(price) || price < 0 ||
-      !Number.isInteger(quantity) || quantity < 0
-    ) {
-      alert("Enter a valid price and a whole-number quantity.");
-      return;
-    }
+    button.disabled = true;
+    showMessage(`Updating order ${id}...`);
 
-    const unit = prompt("Enter unit (kg, litre, pieces, etc.):") || "pieces";
+    const { error } = await db
+      .from("Orders")
+      .update({ status: select.value })
+      .eq("id", id);
 
-    const { error } = await db.from("Products").insert({
-      name: name.trim(),
-      price,
-      quantity,
-      shop_name: shopName.trim(),
-      unit: unit.trim()
-    });
+    button.disabled = false;
 
     if (error) {
-      alert("Could not add product: " + error.message);
+      showMessage("Could not update order: " + error.message);
       return;
     }
 
-    alert("Product added successfully!");
-    await loadProducts();
+    showMessage(`Order ${id} updated to ${select.value}.`);
+    await loadOrders();
   });
 
-  loadProducts();
-})();
+  refreshButton.addEventListener("click", loadOrders);
+  loadOrders();
+});
