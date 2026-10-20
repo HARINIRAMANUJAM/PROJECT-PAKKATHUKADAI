@@ -9,10 +9,10 @@
 
   let products = [];
 
-  async function loadProducts() {
+  window.loadProducts = async function () {
     if (!body || !status) return;
 
-    if (!db) {
+    if (!window.supabaseClient) {
       status.textContent = "ERROR: Supabase client not connected.";
       return;
     }
@@ -22,13 +22,17 @@
 
     try {
       const result = await Promise.race([
-        db.from("Products")
+        window.supabaseClient
+          .from("Products")
           .select("id, name, price, quantity, shop_name, unit")
           .order("id", { ascending: true }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(
-            "Connection timed out. Check Supabase URL, key and internet."
-          )), 10000)
+          setTimeout(
+            () => reject(new Error(
+              "Connection timed out. Check Supabase URL, key and internet."
+            )),
+            10000
+          )
         )
       ]);
 
@@ -42,11 +46,13 @@
       const groupStat = document.getElementById("stat-groups");
 
       if (productStat) productStat.textContent = products.length;
+
       if (lowStat) {
         lowStat.textContent = products.filter(
           p => Number(p.quantity) <= 5
         ).length;
       }
+
       if (groupStat) {
         groupStat.textContent = new Set(
           products.map(p => p.shop_name).filter(Boolean)
@@ -55,11 +61,13 @@
 
       status.textContent = `${products.length} products loaded.`;
     } catch (error) {
-      status.textContent = "ERROR: " + (error.message || "Could not load products.");
+      status.textContent =
+        "ERROR: " + (error.message || "Could not load products.");
+
       body.innerHTML =
         '<tr><td colspan="5">Products could not be loaded. See message above.</td></tr>';
     }
-  }
+  };
 
   function renderProducts() {
     if (!body) return;
@@ -67,7 +75,9 @@
     const query = (search?.value || "").trim().toLowerCase();
 
     const filtered = products.filter(p =>
-      `${p.name || ""} ${p.shop_name || ""}`.toLowerCase().includes(query)
+      `${p.name || ""} ${p.shop_name || ""}`
+        .toLowerCase()
+        .includes(query)
     );
 
     if (!filtered.length) {
@@ -78,9 +88,12 @@
 
     body.innerHTML = filtered.map(p => {
       const qty = Number(p.quantity) || 0;
+
       const availability = qty <= 0
         ? "Out of stock"
-        : qty <= 5 ? "Low stock" : "Available";
+        : qty <= 5
+          ? "Low stock"
+          : "Available";
 
       return `<tr>
         <td>${escapeHTML(p.name)}</td>
@@ -94,11 +107,15 @@
 
   function escapeHTML(value) {
     return String(value ?? "").replace(/[&<>"']/g, c => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;",
-      '"': "&quot;", "'": "&#39;"
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
     })[c]);
   }
 
   search?.addEventListener("input", renderProducts);
-  loadProducts();
+
+  window.loadProducts();
 })();
