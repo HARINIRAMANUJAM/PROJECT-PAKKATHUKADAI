@@ -1,0 +1,131 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Customer Login | Pakkathu Kadai</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7f2;
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+    }
+    .card {
+      background: white;
+      width: min(360px, 85%);
+      padding: 28px;
+      border-radius: 16px;
+      box-shadow: 0 5px 24px #0001;
+    }
+    h1 { color: #26734d; margin-top: 0; }
+    input, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+    input { border: 1px solid #ccc; }
+    button {
+      border: 0;
+      background: #26734d;
+      color: white;
+      cursor: pointer;
+    }
+    #message { overflow-wrap: anywhere; font-size: 14px; }
+    a { color: #26734d; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Pakkathu Kadai</h1>
+    <h2>Customer Account</h2>
+
+    <form id="auth-form">
+      <input id="name" placeholder="Full name (for sign up)">
+      <input id="email" type="email" placeholder="Email address" required>
+      <input id="password" type="password"
+             placeholder="Password (minimum 6 characters)"
+             minlength="6" required>
+
+      <button type="submit">Sign Up</button>
+      <button type="button" id="login">Log In</button>
+    </form>
+
+    <p id="message" role="status"></p>
+    <a href="./index.html">Back to shopping</a>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/supabase.js"></script>
+  <script>
+    const client = window.supabaseClient;
+    const message = document.getElementById("message");
+
+    async function authenticate(isSignup) {
+      if (!client) {
+        message.textContent = "Database connection unavailable.";
+        return;
+      }
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const name = document.getElementById("name").value.trim();
+
+      message.textContent = "Please wait...";
+
+      const result = isSignup
+        ? await client.auth.signUp({
+            email,
+            password,
+            options: { data: { full_name: name } }
+          })
+        : await client.auth.signInWithPassword({ email, password });
+
+      if (result.error) {
+        message.textContent = result.error.message;
+        return;
+      }
+
+      if (isSignup && !result.data.session) {
+        message.textContent =
+          "Account created. Check your email to confirm, then log in.";
+        return;
+      }
+
+      if (!result.data.session) {
+        message.textContent = "Please confirm your email, then log in.";
+        return;
+      }
+
+      const { data: profile, error } = await client
+        .from("profiles")
+        .select("role")
+        .eq("id", result.data.user.id)
+        .single();
+
+      if (error || profile?.role !== "customer") {
+        await client.auth.signOut();
+        message.textContent = "Customer account verification failed.";
+        return;
+      }
+
+      window.location.href = "./index.html";
+    }
+
+    document.getElementById("auth-form").addEventListener("submit", e => {
+      e.preventDefault();
+      authenticate(true);
+    });
+
+    document.getElementById("login").addEventListener("click", () => {
+      authenticate(false);
+    });
+  </script>
+</body>
+</html>
