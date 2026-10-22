@@ -372,7 +372,7 @@
 
   <footer>Pakkathu Kadai · Supporting local shops</footer>
 
-  <!-- Keep Supabase setup before scripts that use the client. -->
+  <!-- Supabase setup must run before scripts that use the client. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
 
@@ -407,19 +407,23 @@
       let products = [];
       let editingId = null;
 
-      const status = (message) => {
+      const status = message => {
         $("dashboard-status").textContent = message;
       };
 
       const safe = value => String(value ?? "").replace(/[&<>"']/g, char => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;",
-        '"': "&quot;", "'": "&#39;"
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
       }[char]));
 
       const money = value => "₹" + Number(value || 0).toFixed(2);
 
       async function loadInventory() {
         const client = db();
+
         if (!client) {
           status("Supabase client not found. Check js/supabase.js.");
           $("inventory-body").innerHTML =
@@ -520,6 +524,7 @@
       }
 
       $("show-add-form").addEventListener("click", () => showProductForm());
+
       $("cancel-product-form").addEventListener("click", () => {
         $("product-form-panel").classList.add("hidden");
         $("product-form").reset();
@@ -551,6 +556,7 @@
         $("product-form-status").textContent = "Saving…";
 
         let result;
+
         if (editingId !== null) {
           result = await client.from("Products").update(product).eq("id", editingId);
         } else {
@@ -587,10 +593,12 @@
           if (!confirm(`Delete "${product.name}" from inventory?`)) return;
 
           const { error } = await db().from("Products").delete().eq("id", product.id);
+
           if (error) {
             alert("Could not delete product: " + error.message);
             return;
           }
+
           await loadInventory();
         }
       });
@@ -610,15 +618,19 @@
       $("low-stock-button").addEventListener("click", () =>
         callFeature("checkLowStock", "Low-stock feature is not connected yet.")
       );
+
       $("restock-button").addEventListener("click", () =>
         callFeature("showRestockSuggestions", "Restock suggestions are not connected yet.")
       );
+
       $("inventory-report-button").addEventListener("click", () =>
         callFeature("showInventoryReport", "Inventory report is not connected yet.")
       );
+
       $("expiry-button").addEventListener("click", () =>
         callFeature("checkExpiryAlerts", "Expiry alerts are not connected yet.")
       );
+
       $("export-button").addEventListener("click", () =>
         callFeature("exportInventoryCSV", "CSV export is not connected yet.")
       );
@@ -626,15 +638,19 @@
       $("orders-button").addEventListener("click", () =>
         callFeature("showOrderDelivery", "Order tracker is not connected yet.")
       );
+
       $("sales-button").addEventListener("click", () =>
         callFeature("showSalesAnalytics", "Sales analytics are not connected yet.")
       );
+
       $("daily-summary-button").addEventListener("click", () =>
         callFeature("showDailySummary", "Daily summary is not connected yet.")
       );
+
       $("customer-insights-button").addEventListener("click", () =>
         callFeature("showCustomerInsights", "Customer insights are not connected yet.")
       );
+
       $("whatsapp-button").addEventListener("click", () =>
         callFeature("openWhatsAppOrderMessage", "WhatsApp message feature is not connected yet.")
       );
@@ -642,21 +658,27 @@
       $("business-summary-button").addEventListener("click", () =>
         callFeature("showBusinessManagerSummary", "Business summary is not connected yet.")
       );
+
       $("expenses-button").addEventListener("click", () =>
         callFeature("manageBusinessExpenses", "Expense tracker is not connected yet.")
       );
+
       $("profit-button").addEventListener("click", () =>
         callFeature("calculateProductProfit", "Profit calculator is not connected yet.")
       );
+
       $("price-change-button").addEventListener("click", () =>
         callFeature("trackPriceChange", "Price comparison is not connected yet.")
       );
+
       $("discount-button").addEventListener("click", () =>
         callFeature("showDiscountSuggestions", "Discount suggestions are not connected yet.")
       );
+
       $("compare-button").addEventListener("click", () =>
         callFeature("compareProducts", "Product comparison is not connected yet.")
       );
+
       $("supplier-button").addEventListener("click", () =>
         callFeature("manageSupplierHub", "Supplier hub is not connected yet.")
       );
@@ -664,10 +686,12 @@
       $("bulk-create-button").addEventListener("click", () =>
         $("purchase-workspace").classList.remove("hidden")
       );
+
       $("bulk-view-button").addEventListener("click", () => {
         $("purchase-workspace").classList.add("hidden");
         $("purchase-list").scrollIntoView({ behavior: "smooth", block: "start" });
       });
+
       $("cancel-purchase-button").addEventListener("click", () =>
         $("purchase-workspace").classList.add("hidden")
       );
