@@ -1,0 +1,206 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopkeeper Login | Pakkathu Kadai</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f2f7f1;
+      padding: 20px;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      background: white;
+      padding: 32px;
+      border-radius: 16px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.09);
+    }
+
+    .logo {
+      text-align: center;
+      font-size: 28px;
+      font-weight: bold;
+      color: #287a43;
+      margin-bottom: 8px;
+    }
+
+    h2 {
+      text-align: center;
+      margin: 18px 0 8px;
+      color: #222;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 25px;
+      font-size: 14px;
+    }
+
+    label {
+      display: block;
+      margin: 15px 0 7px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+
+    input:focus {
+      outline: 2px solid #83c994;
+      border-color: #287a43;
+    }
+
+    button {
+      width: 100%;
+      padding: 13px;
+      margin-top: 22px;
+      background: #287a43;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    #message {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    .back-link {
+      display: block;
+      margin-top: 20px;
+      text-align: center;
+      color: #287a43;
+      text-decoration: none;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="login-card">
+    <div class="logo">Pakkathu Kadai</div>
+    <h2>Shopkeeper Login</h2>
+    <p class="subtitle">Sign in to manage your shop inventory.</p>
+
+    <form id="loginForm">
+      <label for="email">Email address</label>
+      <input
+        type="email"
+        id="email"
+        autocomplete="username"
+        placeholder="Enter your registered email"
+        required
+      >
+
+      <label for="password">Password</label>
+      <input
+        type="password"
+        id="password"
+        autocomplete="current-password"
+        placeholder="Enter your password"
+        required
+      >
+
+      <button type="submit" id="loginButton">Login</button>
+      <p id="message" role="status" aria-live="polite"></p>
+    </form>
+
+    <a class="back-link" href="./index.html">
+      ← Back to customer website
+    </a>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/supabase.js"></script>
+
+  <script>
+    const form = document.getElementById("loginForm");
+    const button = document.getElementById("loginButton");
+    const message = document.getElementById("message");
+
+    form.addEventListener("submit", async function (event) {
+      event.preventDefault();
+
+      const client = window.supabaseClient;
+
+      if (!client) {
+        message.textContent = "Connection error. Check js/supabase.js.";
+        return;
+      }
+
+      button.disabled = true;
+      message.textContent = "Checking login details...";
+
+      try {
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+
+        const { data, error } =
+          await client.auth.signInWithPassword({
+            email,
+            password
+          });
+
+        if (error) throw error;
+
+        const { data: profile, error: profileError } =
+          await client
+            .from("profiles")
+            .select("role")
+            .eq("id", data.user.id)
+            .single();
+
+        if (profileError || !profile || profile.role !== "shopkeeper") {
+          await client.auth.signOut();
+          message.textContent =
+            "This account is not registered as an approved shopkeeper.";
+          return;
+        }
+
+        message.textContent = "Login successful. Opening dashboard...";
+        window.location.href = "./shopkeeper.html";
+
+      } catch (error) {
+        message.textContent =
+          error.message || "Login failed. Please try again.";
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
