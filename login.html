@@ -1,0 +1,100 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pakkathu Kadai | Login</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: grid;
+      place-items: center; font-family: Arial, sans-serif;
+      background: #f2f7f2; padding: 20px;
+    }
+    .card {
+      width: 100%; max-width: 390px; background: white;
+      padding: 28px; border-radius: 16px;
+      box-shadow: 0 5px 25px #0001;
+    }
+    h2 { color: #187443; margin-bottom: 8px; }
+    p { color: #666; }
+    label { display: block; margin-top: 15px; }
+    input, select, button {
+      width: 100%; padding: 12px; margin-top: 7px;
+      border: 1px solid #ccc; border-radius: 8px;
+      font-size: 16px;
+    }
+    button {
+      background: #187443; color: white;
+      border: 0; cursor: pointer; margin-top: 22px;
+    }
+    #message { overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h2>Pakkathu Kadai</h2>
+    <p>One login for your local shopping community.</p>
+
+    <form id="login-form">
+      <label for="email">Email</label>
+      <input id="email" type="email" required autocomplete="email">
+
+      <label for="password">Password</label>
+      <input id="password" type="password" required
+        autocomplete="current-password">
+
+      <label for="role">Login as</label>
+      <select id="role" required>
+        <option value="customer">Customer</option>
+        <option value="shopkeeper">Shopkeeper</option>
+        <option value="delivery">Delivery Partner</option>
+        <option value="admin">Admin</option>
+      </select>
+
+      <button type="submit">Log In</button>
+    </form>
+
+    <p id="message" role="status"></p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script>
+    const form = document.getElementById("login-form");
+    const message = document.getElementById("message");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      message.textContent = "Checking login...";
+
+      const client = window.supabaseClient || window.supabase;
+
+      if (!client || typeof client.auth?.signInWithPassword !== "function") {
+        message.textContent =
+          "Supabase client not found. Check js/supabase.js.";
+        return;
+      }
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const role = document.getElementById("role").value;
+
+      const { data, error } = await client.auth.signInWithPassword({
+        email, password
+      });
+
+      if (error) {
+        message.textContent = error.message;
+        return;
+      }
+
+      // Role verification and dashboard routing must be added
+      // using trusted database role records before launch.
+      message.textContent =
+        "Login successful. Role verification is not configured yet.";
+    });
+  </script>
+</body>
+</html>
