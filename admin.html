@@ -4,53 +4,224 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pakkathu Kadai | Admin</title>
+  <title>Pakkathu Kadai | Admin Dashboard</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f2f7f2; margin: 0; padding: 24px; }
-    main { max-width: 650px; margin: 30px auto; background: white; padding: 24px; border-radius: 14px; }
-    h1 { color: #187443; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: Arial, sans-serif;
+      background: #f3f6f4; color: #24332b;
+    }
+    header {
+      background: #176b45; color: white; padding: 20px;
+      display: flex; justify-content: space-between;
+      align-items: center; flex-wrap: wrap; gap: 12px;
+    }
+    header a { color: white; }
+    main { max-width: 1100px; margin: auto; padding: 22px; }
+    .stats {
+      display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr));
+      gap: 15px; margin: 22px 0;
+    }
+    .card, .panel {
+      background: white; border-radius: 12px;
+      padding: 20px; box-shadow: 0 2px 10px #0000000a;
+    }
+    .number { font-size: 28px; font-weight: bold; color: #176b45; }
+    .panel { margin-top: 20px; overflow-x: auto; }
+    button, select {
+      padding: 9px 12px; border: 1px solid #ccc;
+      border-radius: 7px; cursor: pointer; background: white;
+    }
+    button.primary { background: #176b45; color: white; border: 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { text-align: left; padding: 11px; border-bottom: 1px solid #eee; }
+    #message { overflow-wrap: anywhere; }
+    .muted { color: #66736b; }
   </style>
 </head>
 <body>
-  <main>
-    <h1>Admin Dashboard</h1>
-    <p>Manage Pakkathu Kadai.</p>
-    <p id="status">Checking access...</p>
-    <button onclick="location.href='login.html'">Back to Login</button>
-  </main>
+<header>
+  <div>
+    <strong>Pakkathu Kadai</strong>
+    <div>Admin Dashboard</div>
+  </div>
+  <div>
+    <a href="index.html">Customer Store</a>
+    <button id="logout-button">Log out</button>
+  </div>
+</header>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase.js"></script>
-  <script>
-    (async () => {
-      const client = window.supabaseClient;
-      const status = document.getElementById("status");
+<main>
+  <h1>Platform overview</h1>
+  <p id="message" role="status">Checking admin access...</p>
 
-      if (!client) {
-        status.textContent = "Supabase connection unavailable.";
-        return;
-      }
+  <div class="stats">
+    <section class="card">
+      <p>Total products</p>
+      <div class="number" id="product-count">—</div>
+    </section>
+    <section class="card">
+      <p>Total orders</p>
+      <div class="number" id="order-count">—</div>
+    </section>
+    <section class="card">
+      <p>Shopkeepers</p>
+      <div class="number" id="shopkeeper-count">—</div>
+    </section>
+    <section class="card">
+      <p>Delivery partners</p>
+      <div class="number" id="delivery-count">—</div>
+    </section>
+  </div>
 
-      const { data: { user }, error } = await client.auth.getUser();
+  <section class="panel">
+    <h2>Recent orders</h2>
+    <button class="primary" id="refresh-button">Refresh dashboard</button>
+    <div id="orders-area" class="muted">Orders will appear here.</div>
+  </section>
 
-      if (error || !user) {
-        location.replace("login.html");
-        return;
-      }
+  <section class="panel">
+    <h2>Platform roles</h2>
+    <p class="muted">
+      Counts come from user_roles. User email addresses are not exposed here.
+    </p>
+    <div id="roles-area">Loading...</div>
+  </section>
+</main>
 
-      const { data, error: roleError } = await client
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script>
+(async () => {
+  const client = window.supabaseClient;
+  const message = document.getElementById("message");
+  const ordersArea = document.getElementById("orders-area");
+  const rolesArea = document.getElementById("roles-area");
 
-      if (roleError || data?.role !== "admin") {
-        status.textContent = "Access denied: admin role required.";
-        return;
-      }
+  if (!client) {
+    message.textContent = "Supabase connection failed.";
+    return;
+  }
 
-      status.textContent = "Access verified. Admin dashboard setup is next.";
-    })();
-  </script>
+  document.getElementById("logout-button").onclick = async () => {
+    await client.auth.signOut();
+    location.href = "login.html";
+  };
+
+  const { data: authData, error: authError } = await client.auth.getUser();
+  const user = authData?.user;
+
+  if (authError || !user) {
+    location.replace("login.html");
+    return;
+  }
+
+  const { data: roleRow, error: roleError } = await client
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (roleError || roleRow?.role !== "admin") {
+    message.textContent = "Access denied. Admin account required.";
+    return;
+  }
+
+  message.textContent = "Admin access verified.";
+  await loadDashboard();
+
+  document.getElementById("refresh-button").onclick = loadDashboard;
+
+  async function loadDashboard() {
+    message.textContent = "Refreshing dashboard...";
+
+    const [productsResult, ordersResult, rolesResult] = await Promise.all([
+      client.from("Products").select("id", { count: "exact", head: true }),
+      client.from("Orders").select("*").order("created_at", { ascending: false }).limit(20),
+      client.from("user_roles").select("role")
+    ]);
+
+    if (productsResult.error) {
+      document.getElementById("product-count").textContent = "Error";
+    } else {
+      document.getElementById("product-count").textContent =
+        productsResult.count ?? 0;
+    }
+
+    if (ordersResult.error) {
+      document.getElementById("order-count").textContent = "Error";
+      ordersArea.textContent = "Cannot load orders: " + ordersResult.error.message;
+    } else {
+      const orders = ordersResult.data || [];
+      document.getElementById("order-count").textContent = orders.length;
+      renderOrders(orders);
+    }
+
+    if (rolesResult.error) {
+      rolesArea.textContent = "Cannot load role counts: " + rolesResult.error.message;
+    } else {
+      const roles = rolesResult.data || [];
+      document.getElementById("shopkeeper-count").textContent =
+        roles.filter(r => r.role === "shopkeeper").length;
+      document.getElementById("delivery-count").textContent =
+        roles.filter(r => r.role === "delivery").length;
+
+      rolesArea.textContent = "Customers: " +
+        roles.filter(r => r.role === "customer").length +
+        " | Shopkeepers: " +
+        roles.filter(r => r.role === "shopkeeper").length +
+        " | Delivery partners: " +
+        roles.filter(r => r.role === "delivery").length +
+        " | Admins: " +
+        roles.filter(r => r.role === "admin").length;
+    }
+
+    message.textContent = "Dashboard refresh finished.";
+  }
+
+  function renderOrders(orders) {
+    if (!orders.length) {
+      ordersArea.textContent = "No orders found.";
+      return;
+    }
+
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+
+    ["Order ID", "Customer", "Total", "Status", "Date"].forEach(label => {
+      const th = document.createElement("th");
+      th.textContent = label;
+      headRow.appendChild(th);
+    });
+
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    orders.forEach(order => {
+      const row = document.createElement("tr");
+      const values = [
+        order.id,
+        order.customer_name || "—",
+        order.total == null ? "—" : "₹" + order.total,
+        order.status || "pending",
+        order.created_at ? new Date(order.created_at).toLocaleString() : "—"
+      ];
+
+      values.forEach(value => {
+        const td = document.createElement("td");
+        td.textContent = String(value);
+        row.appendChild(td);
+      });
+
+      tbody.appendChild(row);
+    });
+
+    table.appendChild(tbody);
+    ordersArea.replaceChildren(table);
+  }
+})();
+</script>
 </body>
 </html>
