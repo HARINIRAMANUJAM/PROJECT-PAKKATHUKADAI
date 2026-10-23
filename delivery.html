@@ -1,0 +1,56 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pakkathu Kadai | Delivery</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f2f7f2; margin: 0; padding: 24px; }
+    main { max-width: 650px; margin: 30px auto; background: white; padding: 24px; border-radius: 14px; }
+    h1 { color: #187443; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Delivery Partner Dashboard</h1>
+    <p>Welcome to Pakkathu Kadai delivery.</p>
+    <p id="status">Checking access...</p>
+    <button onclick="location.href='login.html'">Back to Login</button>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script>
+    (async () => {
+      const client = window.supabaseClient;
+      const status = document.getElementById("status");
+
+      if (!client) {
+        status.textContent = "Supabase connection unavailable.";
+        return;
+      }
+
+      const { data: { user }, error } = await client.auth.getUser();
+
+      if (error || !user) {
+        location.replace("login.html");
+        return;
+      }
+
+      const { data, error: roleError } = await client
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (roleError || data?.role !== "delivery") {
+        status.textContent = "Access denied: delivery role required.";
+        return;
+      }
+
+      status.textContent = "Access verified. Delivery dashboard setup is next.";
+    })();
+  </script>
+</body>
+</html>
