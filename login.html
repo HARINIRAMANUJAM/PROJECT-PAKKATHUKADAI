@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pakkathu Kadai | Login</title>
   <style>
     * { box-sizing: border-box; }
@@ -17,8 +17,7 @@
       padding: 28px; border-radius: 16px;
       box-shadow: 0 5px 25px #0001;
     }
-    h2 { color: #187443; margin-bottom: 8px; }
-    p { color: #666; }
+    h2 { color: #187443; }
     label { display: block; margin-top: 15px; }
     input, select, button {
       width: 100%; padding: 12px; margin-top: 7px;
@@ -53,9 +52,8 @@
         <option value="admin">Admin</option>
       </select>
 
-      <button type="submit">Log In</button>
+      <button id="login-button" type="submit">Log In</button>
     </form>
-
     <p id="message" role="status"></p>
   </main>
 
@@ -64,36 +62,66 @@
   <script>
     const form = document.getElementById("login-form");
     const message = document.getElementById("message");
+    const button = document.getElementById("login-button");
+
+    const dashboards = {
+      customer: "index.html",
+      shopkeeper: "shopkeeper.html",
+      delivery: "delivery.html",
+      admin: "admin.html"
+    };
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+
+      const client = window.supabaseClient;
+      if (!client) {
+        message.textContent = "Supabase connection failed.";
+        return;
+      }
+
+      button.disabled = true;
       message.textContent = "Checking login...";
 
-      const client = window.supabaseClient || window.supabase;
+      try {
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+        const selectedRole = document.getElementById("role").value;
 
-      if (!client || typeof client.auth?.signInWithPassword !== "function") {
-        message.textContent =
-          "Supabase client not found. Check js/supabase.js.";
-        return;
+        const { data: loginData, error: loginError } =
+          await client.auth.signInWithPassword({ email, password });
+
+        if (loginError) throw loginError;
+
+        const { data: roleData, error: roleError } = await client
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", loginData.user.id)
+          .maybeSingle();
+
+        if (roleError) throw roleError;
+
+        if (!roleData) {
+          await client.auth.signOut();
+          message.textContent =
+            "No role assigned to this account. Contact the administrator.";
+          return;
+        }
+
+        if (roleData.role !== selectedRole) {
+          message.textContent =
+            "This account is not registered as " + selectedRole + ".";
+          return;
+        }
+
+        message.textContent = "Login successful. Opening dashboard...";
+        window.location.href = dashboards[roleData.role];
+
+      } catch (error) {
+        message.textContent = error.message || "Login failed.";
+      } finally {
+        button.disabled = false;
       }
-
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
-      const role = document.getElementById("role").value;
-
-      const { data, error } = await client.auth.signInWithPassword({
-        email, password
-      });
-
-      if (error) {
-        message.textContent = error.message;
-        return;
-      }
-
-      // Role verification and dashboard routing must be added
-      // using trusted database role records before launch.
-      message.textContent =
-        "Login successful. Role verification is not configured yet.";
     });
   </script>
 </body>
