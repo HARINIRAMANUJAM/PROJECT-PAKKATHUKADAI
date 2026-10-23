@@ -1,128 +1,218 @@
-
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pakkathu Kadai | Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | Pakkathu Kadai</title>
+  <link rel="stylesheet" href="css/style.css">
+
   <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; min-height: 100vh; display: grid;
-      place-items: center; font-family: Arial, sans-serif;
-      background: #f2f7f2; padding: 20px;
+    .login-container {
+      max-width: 420px;
+      margin: 50px auto;
+      padding: 25px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px #00000012;
     }
-    .card {
-      width: 100%; max-width: 390px; background: white;
-      padding: 28px; border-radius: 16px;
-      box-shadow: 0 5px 25px #0001;
+
+    .login-container h2 {
+      text-align: center;
     }
-    h2 { color: #187443; }
-    label { display: block; margin-top: 15px; }
-    input, select, button {
-      width: 100%; padding: 12px; margin-top: 7px;
-      border: 1px solid #ccc; border-radius: 8px;
-      font-size: 16px;
+
+    .login-container label {
+      display: block;
+      margin-top: 15px;
     }
-    button {
-      background: #187443; color: white;
-      border: 0; cursor: pointer; margin-top: 22px;
+
+    .login-container input,
+    .login-container select,
+    .login-container button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 12px;
+      margin-top: 7px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
     }
-    #message { overflow-wrap: anywhere; }
+
+    .login-container button {
+      margin-top: 20px;
+      border: none;
+      background: #176b45;
+      color: white;
+      cursor: pointer;
+    }
+
+    .login-container button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    #login-message {
+      margin-top: 15px;
+      overflow-wrap: anywhere;
+    }
   </style>
 </head>
+
 <body>
-  <main class="card">
-    <h2>Pakkathu Kadai</h2>
-    <p>One login for your local shopping community.</p>
+  <header class="site-header">
+    <h1>Pakkathu Kadai</h1>
+    <nav class="main-nav">
+      <a href="index.html">Customer Store</a>
+      <a href="login.html">Login</a>
+    </nav>
+  </header>
+
+  <main class="login-container">
+    <h2>Welcome Back!</h2>
+    <p>Log in to your Pakkathu Kadai account.</p>
 
     <form id="login-form">
-      <label for="email">Email</label>
-      <input id="email" type="email" required autocomplete="email">
+      <label for="email">Email address</label>
+      <input
+        type="email"
+        id="email"
+        autocomplete="username"
+        required
+      >
 
       <label for="password">Password</label>
-      <input id="password" type="password" required
-        autocomplete="current-password">
+      <input
+        type="password"
+        id="password"
+        autocomplete="current-password"
+        required
+      >
 
       <label for="role">Login as</label>
       <select id="role" required>
         <option value="customer">Customer</option>
         <option value="shopkeeper">Shopkeeper</option>
-        <option value="delivery">Delivery Partner</option>
+        <option value="delivery">Delivery</option>
         <option value="admin">Admin</option>
       </select>
 
-      <button id="login-button" type="submit">Log In</button>
+      <button type="submit" id="login-button">Login</button>
+      <p id="login-message" aria-live="polite">Checking connection...</p>
     </form>
-    <p id="message" role="status"></p>
   </main>
 
+  <!-- Load Supabase library first -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase.js"></script>
+
+  <!-- Load the shared client from the project folder -->
+  <script src="/PROJECT-PAKKATHUKADAI/js/supabase.js"></script>
+
   <script>
-    const form = document.getElementById("login-form");
-    const message = document.getElementById("message");
-    const button = document.getElementById("login-button");
+    (() => {
+      "use strict";
 
-    const dashboards = {
-      customer: "index.html",
-      shopkeeper: "shopkeeper.html",
-      delivery: "delivery.html",
-      admin: "admin.html"
-    };
+      const form = document.getElementById("login-form");
+      const message = document.getElementById("login-message");
+      const button = document.getElementById("login-button");
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
+      const PROJECT_PATH = "/PROJECT-PAKKATHUKADAI/";
+
+      function showMessage(text) {
+        message.textContent = text;
+      }
 
       const client = window.supabaseClient;
-      if (!client) {
-        message.textContent = "Supabase connection failed.";
+
+      if (!window.supabase) {
+        showMessage("Supabase library failed to load. Refresh and try again.");
+        console.error("Supabase CDN library is missing.");
+        button.disabled = true;
         return;
       }
 
-      button.disabled = true;
-      message.textContent = "Checking login...";
+      if (!client) {
+        showMessage(
+          "Supabase client failed to initialize. Check js/supabase.js."
+        );
+        console.error("Supabase client is missing.");
+        button.disabled = true;
+        return;
+      }
 
-      try {
+      showMessage("Connection initialized. Ready to log in.");
+
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+
         const email = document.getElementById("email").value.trim();
         const password = document.getElementById("password").value;
         const selectedRole = document.getElementById("role").value;
 
-        const { data: loginData, error: loginError } =
-          await client.auth.signInWithPassword({ email, password });
+        button.disabled = true;
+        showMessage("Signing in...");
 
-        if (loginError) throw loginError;
+        try {
+          const { data: authData, error: authError } =
+            await client.auth.signInWithPassword({
+              email,
+              password
+            });
 
-        const { data: roleData, error: roleError } = await client
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", loginData.user.id)
-          .maybeSingle();
+          if (authError) {
+            console.error("Login error:", authError);
+            showMessage("Login failed. Check your email and password.");
+            return;
+          }
 
-        if (roleError) throw roleError;
+          const user = authData.user;
 
-        if (!roleData) {
-          await client.auth.signOut();
-          message.textContent =
-            "No role assigned to this account. Contact the administrator.";
-          return;
+          if (!user) {
+            showMessage("Login failed. Please try again.");
+            return;
+          }
+
+          const { data: roleData, error: roleError } = await client
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          if (roleError) {
+            console.error("Role lookup error:", roleError);
+            await client.auth.signOut();
+            showMessage("Could not verify your account role.");
+            return;
+          }
+
+          if (!roleData || roleData.role !== selectedRole) {
+            await client.auth.signOut();
+            showMessage(
+              "Selected role does not match your registered account role."
+            );
+            return;
+          }
+
+          showMessage("Login successful. Opening your dashboard...");
+
+          const destinations = {
+            customer: "index.html",
+            shopkeeper: "shopkeeper.html",
+            delivery: "delivery.html",
+            admin: "admin.html"
+          };
+
+          window.location.href =
+            PROJECT_PATH + destinations[selectedRole];
+
+        } catch (error) {
+          console.error("Unexpected login error:", error);
+          showMessage("Something went wrong. Check the browser Console.");
+        } finally {
+          button.disabled = false;
         }
-
-        if (roleData.role !== selectedRole) {
-          message.textContent =
-            "This account is not registered as " + selectedRole + ".";
-          return;
-        }
-
-        message.textContent = "Login successful. Opening dashboard...";
-        window.location.href = dashboards[roleData.role];
-
-      } catch (error) {
-        message.textContent = error.message || "Login failed.";
-      } finally {
-        button.disabled = false;
-      }
-    });
+      });
+    })();
   </script>
 </body>
 </html>
+```
