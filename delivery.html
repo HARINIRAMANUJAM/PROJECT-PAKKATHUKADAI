@@ -1,56 +1,102 @@
-
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pakkathu Kadai | Delivery</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delivery Dashboard | Pakkathu Kadai</title>
+  <link rel="stylesheet" href="css/style.css">
   <style>
-    body { font-family: Arial, sans-serif; background: #f2f7f2; margin: 0; padding: 24px; }
-    main { max-width: 650px; margin: 30px auto; background: white; padding: 24px; border-radius: 14px; }
-    h1 { color: #187443; }
+    .delivery-container {
+      max-width: 1100px;
+      margin: 30px auto;
+      padding: 20px;
+    }
+    .delivery-card {
+      background: #fff;
+      padding: 20px;
+      margin: 16px 0;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      box-shadow: 0 3px 10px #0000000d;
+    }
+    .delivery-card p { margin: 8px 0; }
+    .delivery-card select,
+    .delivery-card button {
+      padding: 10px;
+      margin: 6px 6px 6px 0;
+      border-radius: 6px;
+    }
+    .delivery-card button {
+      cursor: pointer;
+      border: 0;
+      background: #176b45;
+      color: white;
+    }
+    .status { font-weight: bold; }
+    #dashboard-message { padding: 12px 0; }
   </style>
 </head>
 <body>
-  <main>
-    <h1>Delivery Partner Dashboard</h1>
-    <p>Welcome to Pakkathu Kadai delivery.</p>
-    <p id="status">Checking access...</p>
-    <button onclick="location.href='login.html'">Back to Login</button>
+  <header class="site-header">
+    <h1>Pakkathu Kadai</h1>
+    <nav class="main-nav">
+      <a href="index.html">Customer Store</a>
+      <a href="shopkeeper.html">Shopkeeper</a>
+      <a href="delivery.html">Delivery Dashboard</a>
+      <button id="logout-button" type="button">Logout</button>
+    </nav>
+  </header>
+
+  <main class="delivery-container">
+    <h2>Delivery Dashboard</h2>
+    <p>View orders and update their delivery status.</p>
+    <p id="dashboard-message">Checking access...</p>
+    <section id="delivery-orders"></section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
   <script>
-    (async () => {
+    (() => {
+      "use strict";
+
       const client = window.supabaseClient;
-      const status = document.getElementById("status");
+      const message = document.getElementById("dashboard-message");
+      const ordersContainer = document.getElementById("delivery-orders");
+      const logoutButton = document.getElementById("logout-button");
 
       if (!client) {
-        status.textContent = "Supabase connection unavailable.";
+        message.textContent = "Connection failed. Check js/supabase.js.";
         return;
       }
 
-      const { data: { user }, error } = await client.auth.getUser();
+      const allowedStatuses = [
+        "pending",
+        "confirmed",
+        "preparing",
+        "ready",
+        "out_for_delivery",
+        "delivered",
+        "cancelled"
+      ];
 
-      if (error || !user) {
-        location.replace("login.html");
-        return;
+      function escapeHTML(value) {
+        return String(value ?? "").replace(/[&<>"']/g, char => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        })[char]);
       }
 
-      const { data, error: roleError } = await client
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      function formatItems(items) {
+        if (!Array.isArray(items)) {
+          return escapeHTML(
+            typeof items === "string" ? items : JSON.stringify(items ?? {})
+          );
+        }
 
-      if (roleError || data?.role !== "delivery") {
-        status.textContent = "Access denied: delivery role required.";
-        return;
-      }
-
-      status.textContent = "Access verified. Delivery dashboard setup is next.";
-    })();
-  </script>
-</body>
-</html>
+        return items.map(item => {
+          const name = escapeHTML(item.name || item.product_name || "Item
