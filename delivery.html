@@ -6,40 +6,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Delivery Dashboard | Pakkathu Kadai</title>
   <link rel="stylesheet" href="css/style.css">
+
   <style>
     .delivery-container {
       max-width: 1100px;
       margin: 30px auto;
       padding: 20px;
     }
+
     .delivery-card {
       background: #fff;
+      color: #222;
       padding: 20px;
       margin: 16px 0;
-      border-radius: 12px;
       border: 1px solid #ddd;
+      border-radius: 12px;
       box-shadow: 0 3px 10px #0000000d;
     }
-    .delivery-card p { margin: 8px 0; }
+
+    .delivery-card p {
+      margin: 8px 0;
+      overflow-wrap: anywhere;
+    }
+
     .delivery-card select,
     .delivery-card button {
       padding: 10px;
-      margin: 6px 6px 6px 0;
+      margin: 8px 8px 8px 0;
       border-radius: 6px;
     }
+
     .delivery-card button {
       cursor: pointer;
       border: 0;
       background: #176b45;
       color: white;
     }
-    .status { font-weight: bold; }
-    #dashboard-message { padding: 12px 0; }
+
+    .delivery-card button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    .status {
+      font-weight: bold;
+    }
+
+    #dashboard-message {
+      padding: 12px 0;
+    }
   </style>
 </head>
+
 <body>
   <header class="site-header">
     <h1>Pakkathu Kadai</h1>
+
     <nav class="main-nav">
       <a href="index.html">Customer Store</a>
       <a href="shopkeeper.html">Shopkeeper</a>
@@ -51,12 +73,21 @@
   <main class="delivery-container">
     <h2>Delivery Dashboard</h2>
     <p>View orders and update their delivery status.</p>
-    <p id="dashboard-message">Checking access...</p>
+
+    <p id="dashboard-message" aria-live="polite">
+      Checking access...
+    </p>
+
     <section id="delivery-orders"></section>
   </main>
 
+  <!-- Load Supabase library FIRST -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Initialize the existing Supabase client SECOND -->
   <script src="js/supabase.js"></script>
+
+  <!-- Dashboard logic THIRD -->
   <script>
     (() => {
       "use strict";
@@ -65,11 +96,6 @@
       const message = document.getElementById("dashboard-message");
       const ordersContainer = document.getElementById("delivery-orders");
       const logoutButton = document.getElementById("logout-button");
-
-      if (!client) {
-        message.textContent = "Connection failed. Check js/supabase.js.";
-        return;
-      }
 
       const allowedStatuses = [
         "pending",
@@ -91,108 +117,154 @@
         })[char]);
       }
 
-      function formatItems(items) {
-        if (!Array.isArray(items)) {
-          return escapeHTML(
-            typeof items === "string" ? items : JSON.stringify(items ?? {})
-          );
+      function displayItems(items) {
+        if (Array.isArray(items)) {
+          return items.map(item => {
+            const name = escapeHTML(
+              item.name || item.product_name || "Item"
+            );
+            const quantity = escapeHTML(item.quantity ?? 1);
+            return `${name} × ${quantity}`;
+          }).join(", ");
         }
 
-        return items.map(item => {
-          const name = escapeHTML(item.name || item.product_name || "Item");
-          const quantity = escapeHTML(item.quantity ?? 1);
-          return `${name} × ${quantity}`;
-        }).join(", ");
+        if (items && typeof items === "object") {
+          return escapeHTML(JSON.stringify(items));
+        }
+
+        return escapeHTML(items || "No item details");
       }
 
       async function loadOrders() {
         message.textContent = "Loading orders...";
         ordersContainer.replaceChildren();
 
-        const { data, error } = await client
+        const { data: orders, error } = await client
           .from("Orders")
           .select("*")
           .order("created_at", { ascending: false });
 
         if (error) {
+          console.error("Order loading error:", error);
           message.textContent =
             "Could not load orders. Check Orders table permissions.";
-          console.error("Order loading failed:", error);
           return;
         }
 
-        if (!data || data.length === 0) {
+        if (!orders || orders.length === 0) {
           message.textContent = "No orders found yet.";
           return;
         }
 
-        message.textContent = `${data.length} order(s) found.`;
+        message.textContent = `${orders.length} order(s) found.`;
 
-        data.forEach(order => {
+        orders.forEach(order => {
           const card = document.createElement("article");
           card.className = "delivery-card";
 
-          const orderId = escapeHTML(order.id);
-          const customer = escapeHTML(order.customer_name || "Not provided");
-          const phone = escapeHTML(order.phone || "Not provided");
-          const address = escapeHTML(
-            order.delivery_address || "Address not provided"
-          );
-          const total = escapeHTML(order.total ?? "0");
           const status = allowedStatuses.includes(order.status)
             ? order.status
             : "pending";
 
-          const options = allowedStatuses.map(option =>
-            `<option value="${option}" ${
+          const orderId = escapeHTML(order.id);
+
+          const options = allowedStatuses.map(option => `
+            <option value="${option}" ${
               option === status ? "selected" : ""
-            }>${option.replaceAll("_", " ")}</option>`
-          ).join("");
+            }>${option.replaceAll("_", " ")}</option>
+          `).join("");
 
           card.innerHTML = `
             <h3>Order #${orderId}</h3>
-            <p><strong>Customer:</strong> ${customer}</p>
-            <p><strong>Phone:</strong> ${phone}</p>
-            <p><strong>Delivery address:</strong> ${address}</p>
-            <p><strong>Items:</strong> ${formatItems(order.items)}</p>
-            <p><strong>Total:</strong> ₹${total}</p>
+            <p><strong>Customer:</strong>
+              ${escapeHTML(order.customer_name || "Not provided")}
+            </p>
+            <p><strong>Phone:</strong>
+              ${escapeHTML(order.phone || "Not provided")}
+            </p>
+            <p><strong>Delivery address:</strong>
+              ${escapeHTML(order.delivery_address || "Not provided")}
+            </p>
+            <p><strong>Items:</strong>
+              ${displayItems(order.items)}
+            </p>
+            <p><strong>Total:</strong>
+              ₹${escapeHTML(order.total ?? 0)}
+            </p>
             <p><strong>Current status:</strong>
-              <span class="status">${escapeHTML(status.replaceAll("_", " "))}</span>
+              <span class="status">
+                ${escapeHTML(status.replaceAll("_", " "))}
+              </span>
             </p>
             <label for="status-${orderId}">Update status:</label>
             <select id="status-${orderId}">${options}</select>
-            <button type="button" data-order-id="${orderId}">
-              Save status
-            </button>
+            <button type="button">Save status</button>
             <p class="order-message" aria-live="polite"></p>
           `;
 
-          const button = card.querySelector("button");
           const select = card.querySelector("select");
+          const button = card.querySelector("button");
           const resultMessage = card.querySelector(".order-message");
 
           button.addEventListener("click", async () => {
             const newStatus = select.value;
+
             button.disabled = true;
-            resultMessage.textContent = "Saving...";
+            resultMessage.textContent = "Saving status...";
 
-            const { error: updateError } = await client
-              .from("Orders")
-              .update({ status: newStatus })
-              .eq("id", order.id);
+            try {
+              const { data: userData, error: userError } =
+                await client.auth.getUser();
 
-            button.disabled = false;
+              if (userError || !userData.user) {
+                resultMessage.textContent =
+                  "Your session has expired. Please log in again.";
+                return;
+              }
 
-            if (updateError) {
-              console.error("Status update failed:", updateError);
+              const { data: roleData, error: roleError } = await client
+                .from("user_roles")
+                .select("role")
+                .eq("user_id", userData.user.id)
+                .maybeSingle();
+
+              if (roleError || roleData?.role !== "delivery") {
+                resultMessage.textContent =
+                  "Delivery access could not be verified.";
+                return;
+              }
+
+              const { data: updatedOrders, error: updateError } =
+                await client
+                  .from("Orders")
+                  .update({ status: newStatus })
+                  .eq("id", order.id)
+                  .select("id, status");
+
+              if (updateError) {
+                console.error("Status update error:", updateError);
+                resultMessage.textContent =
+                  "Update failed. Check the Console for the exact error.";
+                return;
+              }
+
+              if (!updatedOrders || updatedOrders.length === 0) {
+                resultMessage.textContent =
+                  "No order was updated. Check the database policy.";
+                return;
+              }
+
+              card.querySelector(".status").textContent =
+                updatedOrders[0].status.replaceAll("_", " ");
+
+              resultMessage.textContent = "Status updated successfully.";
+            } catch (error) {
+              console.error("Unexpected update error:", error);
               resultMessage.textContent =
-                "Update failed. Check database UPDATE permissions.";
-              return;
+                "Unexpected error. Check the browser Console.";
+            } finally {
+              button.disabled = false;
             }
-
-            resultMessage.textContent = "Status updated successfully.";
-            card.querySelector(".status").textContent =
-              newStatus.replaceAll("_", " ");
           });
 
           ordersContainer.appendChild(card);
@@ -200,32 +272,63 @@
       }
 
       async function initialise() {
-        const { data: userData, error: userError } =
-          await client.auth.getUser();
-
-        if (userError || !userData.user) {
-          message.textContent = "Please log in first.";
+        if (!client) {
+          message.textContent =
+            "Connection failed. Check js/supabase.js and script loading.";
+          console.error(
+            "Supabase client missing:",
+            !!window.supabase,
+            !!window.supabaseClient
+          );
           return;
         }
 
-        const { data: roleData, error: roleError } = await client
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userData.user.id)
-          .maybeSingle();
+        try {
+          const { data: userData, error: userError } =
+            await client.auth.getUser();
 
-        if (roleError || roleData?.role !== "delivery") {
-          message.textContent = "Access denied. Delivery account required.";
-          return;
+          if (userError || !userData.user) {
+            message.textContent = "Please log in first.";
+            return;
+          }
+
+          const { data: roleData, error: roleError } = await client
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", userData.user.id)
+            .maybeSingle();
+
+          if (roleError) {
+            console.error("Role verification error:", roleError);
+            message.textContent =
+              "Could not verify your role. Check user_roles permissions.";
+            return;
+          }
+
+          if (roleData?.role !== "delivery") {
+            message.textContent =
+              "Access denied. Please use your delivery account.";
+            return;
+          }
+
+          await loadOrders();
+        } catch (error) {
+          console.error("Dashboard initialization error:", error);
+          message.textContent =
+            "Dashboard failed to initialize. Check the browser Console.";
         }
-
-        await loadOrders();
       }
 
       logoutButton.addEventListener("click", async () => {
+        if (!client) {
+          window.location.href = "login.html";
+          return;
+        }
+
         const { error } = await client.auth.signOut();
 
         if (error) {
+          console.error("Logout error:", error);
           message.textContent = "Logout failed. Please try again.";
           return;
         }
