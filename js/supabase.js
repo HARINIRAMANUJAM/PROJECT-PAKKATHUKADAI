@@ -1,4 +1,4 @@
-```javascript
+
 (() => {
   "use strict";
 
@@ -20,4 +20,3 @@
 
   console.log("Supabase client initialized.");
 })();
-```
