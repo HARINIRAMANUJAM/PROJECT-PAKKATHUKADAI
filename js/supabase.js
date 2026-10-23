@@ -1,4 +1,4 @@
-
+```javascript
 (() => {
   "use strict";
 
@@ -9,9 +9,7 @@
     "sb_publishable_GXCZjh_C8Y-bsq9AwngaAQ_nQziTHu6";
 
   if (!window.supabase) {
-    console.error(
-      "Supabase library is missing. Check the script order."
-    );
+    console.error("Supabase library is missing.");
     return;
   }
 
@@ -22,3 +20,4 @@
 
   console.log("Supabase client initialized.");
 })();
+```
