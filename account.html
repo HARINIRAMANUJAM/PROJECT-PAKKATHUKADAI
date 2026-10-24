@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Account | Pakkathu Kadai</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+main{max-width:420px;margin:35px auto;padding:24px;background:white;border-radius:14px}
+label,input,select,button{display:block;width:100%;box-sizing:border-box;margin:10px 0;padding:12px}
+button{cursor:pointer;background:#176b45;color:white;border:0;border-radius:7px}
+#msg{overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<header class="site-header">
+<h1>Pakkathu Kadai</h1>
+<nav><a href="index.html">Home / Shop</a></nav>
+</header>
+<main>
+<h2>Welcome</h2>
+<p>Log in or create an account.</p>
+<button type="button" id="login-mode">Log in</button>
+<button type="button" id="signup-mode">Create account</button>
+<form id="account-form">
+<label>Account type</label>
+<select id="role">
+<option value="customer">Customer</option>
+<option value="shopkeeper">Shopkeeper</option>
+<option value="delivery">Delivery partner</option>
+</select>
+<div id="name-box">
+<label>Full name</label>
+<input id="name" maxlength="100" autocomplete="name">
+</div>
+<div id="shop-box" hidden>
+<label>Shop name</label>
+<input id="shop" maxlength="120">
+</div>
+<label>Email</label>
+<input id="email" type="email" autocomplete="email" required>
+<label>Password (minimum 8 characters)</label>
+<input id="password" type="password" minlength="8" required>
+<button id="submit" type="submit">Log in</button>
+</form>
+<p id="msg" role="status" aria-live="polite"></p>
+<p>Shopkeeper and delivery accounts require admin approval. Admin registration is not public.</p>
+<a href="index.html">Back to home</a>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>
