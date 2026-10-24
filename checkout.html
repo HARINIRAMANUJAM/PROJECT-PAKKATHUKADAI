@@ -51,16 +51,23 @@
           placeholder="Your contact number"
         >
 
-        <label for="delivery-address">Delivery address</label>
-        <textarea
-          id="delivery-address"
-          name="delivery_address"
-          rows="4"
-          autocomplete="street-address"
-          required
-          maxlength="500"
-          placeholder="House number, street, area and city"
-        ></textarea>
+        <label for="fulfilment-method">Choose fulfilment option</label>
+        <select id="fulfilment-method" name="fulfilment_method" required>
+          <option value="Pickup">Pickup from shop</option>
+          <option value="Delivery">Home delivery</option>
+        </select>
+
+        <div id="delivery-address-section" hidden>
+          <label for="delivery-address">Delivery address</label>
+          <textarea
+            id="delivery-address"
+            name="delivery_address"
+            rows="4"
+            autocomplete="street-address"
+            maxlength="500"
+            placeholder="House number, street, area and city"
+          ></textarea>
+        </div>
 
         <button class="primary-button" id="place-order-button" type="submit">
           Place order
@@ -94,5 +101,22 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase.js"></script>
   <script src="js/checkout.js"></script>
+
+  <script>
+    (() => {
+      const method = document.getElementById("fulfilment-method");
+      const section = document.getElementById("delivery-address-section");
+      const address = document.getElementById("delivery-address");
+
+      function updateAddressField() {
+        const isDelivery = method.value === "Delivery";
+        section.hidden = !isDelivery;
+        address.required = isDelivery;
+      }
+
+      method.addEventListener("change", updateAddressField);
+      updateAddressField();
+    })();
+  </script>
 </body>
 </html>
