@@ -4,30 +4,36 @@
   const feedbackEntries = [];
 
   function submitFeedback(customerId, shopName, rating, comment = "") {
+    const customer = String(customerId || "").trim();
+    const shop = String(shopName || "").trim();
     const score = Number(rating);
 
-    if (!customerId || !shopName ||
+    if (!customer || !shop ||
         !Number.isInteger(score) || score < 1 || score > 5) {
-      throw new Error("Provide a customer, shop and rating from 1 to 5.");
+      throw new Error(
+        "Provide a customer ID, shop name and rating from 1 to 5."
+      );
     }
 
     const feedback = {
       id: Date.now(),
-      customerId: String(customerId),
-      shopName: String(shopName),
+      customerId: customer,
+      shopName: shop,
       rating: score,
-      comment: String(comment).trim(),
+      comment: String(comment || "").trim(),
       createdAt: new Date().toISOString()
     };
 
     feedbackEntries.push(feedback);
-    return feedback;
+    return { ...feedback };
   }
 
   function getFeedback(shopName) {
-    return feedbackEntries.filter(
-      entry => entry.shopName === shopName
-    );
+    const shop = String(shopName || "").trim();
+
+    return feedbackEntries
+      .filter(entry => entry.shopName === shop)
+      .map(entry => ({ ...entry }));
   }
 
   function getAverageRating(shopName) {
