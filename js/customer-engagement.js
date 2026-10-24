@@ -1,49 +1,101 @@
+
 (() => {
   "use strict";
 
-  const customerPoints = new Map();
-  const promotions = [];
+  const POINTS_TABLE = "customer_points";
+  const PROMOTIONS_TABLE = "promotions";
 
-  function addPoints(customerId, points) {
-    const id = String(customerId || "").trim();
+  function db() {
+    if (!window.supabaseClient) {
+      throw new Error("Supabase is not connected. Check js/supabase.js.");
+    }
+    return window.supabaseClient;
+  }
+
+  function validCustomerId(value) {
+    const id = String(value || "").trim();
+    if (!id) throw new Error("Enter a customer ID or phone number.");
+    return id;
+  }
+
+  async function addPoints(customerId, points) {
+    const id = validCustomerId(customerId);
     const amount = Number(points);
 
-    if (!id || !Number.isFinite(amount) || amount < 0) {
-      throw new Error("Enter a valid customer ID and non-negative points.");
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
+      throw new Error("Points must be a positive whole number.");
     }
 
-    const updated = (customerPoints.get(id) || 0) + amount;
-    customerPoints.set(id, updated);
+    const client = db();
+
+    const { data: existing, error: readError } = await client
+      .from(POINTS_TABLE)
+      .select("customer_id, points")
+      .eq("customer_id", id)
+      .maybeSingle();
+
+    if (readError) throw readError;
+
+    const updated = Number(existing?.points || 0) + amount;
+
+    const { error } = await client
+      .from(POINTS_TABLE)
+      .upsert(
+        { customer_id: id, points: updated },
+        { onConflict: "customer_id" }
+      );
+
+    if (error) throw error;
     return updated;
   }
 
-  function getPoints(customerId) {
-    return customerPoints.get(String(customerId || "").trim()) || 0;
+  async function getPoints(customerId) {
+    const id = validCustomerId(customerId);
+
+    const { data, error } = await db()
+      .from(POINTS_TABLE)
+      .select("points")
+      .eq("customer_id", id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return Number(data?.points || 0);
   }
 
-  function addPromotion(title, discountPercent, productName = "") {
+  async function addPromotion(title, discountPercent, productName = "") {
     const name = String(title || "").trim();
     const discount = Number(discountPercent);
+    const product = String(productName || "").trim();
 
-    if (!name || !Number.isFinite(discount) ||
-        discount <= 0 || discount > 100) {
-      throw new Error("Enter a title and a discount from 1 to 100.");
+    if (!name) throw new Error("Enter a promotion title.");
+
+    if (!Number.isFinite(discount) || discount <= 0 || discount > 100) {
+      throw new Error("Discount must be between 1 and 100.");
     }
 
-    const promotion = {
-      id: Date.now(),
-      title: name,
-      discountPercent: discount,
-      productName: String(productName || "").trim(),
-      createdAt: new Date().toISOString()
-    };
+    const { data, error } = await db()
+      .from(PROMOTIONS_TABLE)
+      .insert({
+        title: name,
+        discount_percent: discount,
+        product_name: product || null,
+        active: true
+      })
+      .select()
+      .single();
 
-    promotions.push(promotion);
-    return { ...promotion };
+    if (error) throw error;
+    return data;
   }
 
-  function getPromotions() {
-    return promotions.map(promotion => ({ ...promotion }));
+  async function getPromotions() {
+    const { data, error } = await db()
+      .from(PROMOTIONS_TABLE)
+      .select("id, title, discount_percent, product_name, active, created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   }
 
   function recommendProducts(products, budget) {
@@ -63,6 +115,72 @@
       .sort((a, b) => Number(a.price) - Number(b.price));
   }
 
+  async function showCustomerEngagement() {
+    const choice = prompt(
+      "CUSTOMER ENGAGEMENT\n\n" +
+      "1 - Add customer points\n" +
+      "2 - Check customer points\n" +
+      "3 - Create promotion\n" +
+      "4 - View promotions\n\n" +
+      "Enter 1, 2, 3, or 4:"
+    );
+
+    if (choice === null) return;
+
+    try {
+      if (choice === "1") {
+        const customerId = prompt("Customer ID or phone number:");
+        if (customerId === null) return;
+
+        const pointsText = prompt("Points to add (whole number):");
+        if (pointsText === null) return;
+
+        const total = await addPoints(customerId, Number(pointsText));
+        alert("Points saved successfully.\nCustomer total: " + total);
+      } else if (choice === "2") {
+        const customerId = prompt("Customer ID or phone number:");
+        if (customerId === null) return;
+
+        const points = await getPoints(customerId);
+        alert("Customer points: " + points);
+      } else if (choice === "3") {
+        const title = prompt("Promotion title:");
+        if (title === null) return;
+
+        const discountText = prompt("Discount percentage (1–100):");
+        if (discountText === null) return;
+
+        const productName = prompt("Product name (optional):");
+        if (productName === null) return;
+
+        const promotion = await addPromotion(
+          title,
+          Number(discountText),
+          productName
+        );
+
+        alert("Promotion saved: " + promotion.title);
+      } else if (choice === "4") {
+        const promotions = await getPromotions();
+
+        alert(
+          promotions.length
+            ? promotions.map(p =>
+                `${p.title} — ${p.discount_percent}% off` +
+                (p.product_name ? ` (${p.product_name})` : "") +
+                (p.active ? "" : " [Inactive]")
+              ).join("\n")
+            : "No promotions found."
+        );
+      } else {
+        alert("Please enter 1, 2, 3, or 4.");
+      }
+    } catch (error) {
+      console.error("Customer engagement error:", error);
+      alert("Could not complete the action:\n" + error.message);
+    }
+  }
+
   window.PKCustomerEngagement = {
     addPoints,
     getPoints,
@@ -70,4 +188,26 @@
     getPromotions,
     recommendProducts
   };
+
+  window.showCustomerEngagement = showCustomerEngagement;
+
+  // Connect to the existing dashboard button without editing shopkeeper.html.
+  function connectDashboardButton() {
+    const button = document.getElementById("customer-insights-button");
+    if (!button || button.dataset.engagementConnected === "true") return;
+
+    button.dataset.engagementConnected = "true";
+
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      showCustomerEngagement();
+    }, true);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", connectDashboardButton);
+  } else {
+    connectDashboardButton();
+  }
 })();
