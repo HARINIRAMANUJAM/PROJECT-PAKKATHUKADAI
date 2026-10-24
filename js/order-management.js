@@ -19,7 +19,7 @@
   async function updateOrderStatus(orderId, status) {
     if (!db) throw new Error("Supabase client not connected.");
 
-    const allowed = [
+    const allowedStatuses = [
       "Pending",
       "Confirmed",
       "Preparing",
@@ -29,7 +29,7 @@
       "Cancelled"
     ];
 
-    if (!allowed.includes(status)) {
+    if (!allowedStatuses.includes(status)) {
       throw new Error("Invalid order status.");
     }
 
@@ -39,12 +39,13 @@
       .eq("id", orderId);
 
     if (error) throw error;
+
+    notifyCustomerOrderStatus(orderId, status);
     return true;
   }
 
   async function setFulfilment(orderId, method) {
     if (!db) throw new Error("Supabase client not connected.");
-
     if (!["Pickup", "Delivery"].includes(method)) {
       throw new Error("Choose Pickup or Delivery.");
     }
@@ -56,6 +57,24 @@
 
     if (error) throw error;
     return true;
+  }
+
+  async function notifyCustomerOrderStatus(orderId, status) {
+    if (!("Notification" in window)) return;
+
+    try {
+      if (Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
+
+      if (Notification.permission === "granted") {
+        new Notification("Pakkathu Kadai — Order Update", {
+          body: `Order #${orderId}: ${status}`
+        });
+      }
+    } catch (error) {
+      console.warn("Browser notification unavailable:", error);
+    }
   }
 
   async function showOrderManagement() {
@@ -72,52 +91,55 @@
         `Customer: ${order.customer_name || "N/A"}\n` +
         `Total: ₹${order.total ?? "N/A"}\n` +
         `Status: ${order.status || "Pending"}\n` +
-        `Fulfilment: ${order.fulfilment_method || "Not selected"}`
+        `Method: ${order.fulfilment_method || "Not selected"}`
       ).join("\n\n");
 
-      const selectedId = prompt(
-        "ORDER MANAGEMENT\n\n" + summary +
-        "\n\nEnter the order ID to update, or Cancel to exit:"
+      const orderId = prompt(
+        `ORDER MANAGEMENT\n\n${summary}\n\nEnter an order ID:`
       );
 
-      if (!selectedId) return;
+      if (!orderId) return;
 
       const order = orders.find(
-        item => String(item.id) === selectedId.trim()
+        item => String(item.id) === orderId.trim()
       );
 
       if (!order) {
-        alert("Order ID not found.");
+        alert("Order not found.");
         return;
       }
 
-      const action = prompt(
-        "Choose an action:\n" +
-        "1 - Set Pickup\n" +
-        "2 - Set Delivery\n" +
-        "3 - Confirm order\n" +
-        "4 - Mark Preparing\n" +
-        "5 - Ready for pickup\n" +
-        "6 - Out for delivery\n" +
-        "7 - Complete order\n" +
-        "8 - Cancel order"
+      const choice = prompt(
+        "Choose action:\n" +
+        "1 - Confirm order\n" +
+        "2 - Preparing\n" +
+        "3 - Ready for pickup\n" +
+        "4 - Out for delivery\n" +
+        "5 - Complete order\n" +
+        "6 - Cancel order\n" +
+        "7 - Set Pickup\n" +
+        "8 - Set Delivery"
       );
 
-      const actions = {
-        "1": () => setFulfilment(order.id, "Pickup"),
-        "2": () => setFulfilment(order.id, "Delivery"),
-        "3": () => updateOrderStatus(order.id, "Confirmed"),
-        "4": () => updateOrderStatus(order.id, "Preparing"),
-        "5": () => updateOrderStatus(order.id, "Ready for pickup"),
-        "6": () => updateOrderStatus(order.id, "Out for delivery"),
-        "7": () => updateOrderStatus(order.id, "Completed"),
-        "8": () => updateOrderStatus(order.id, "Cancelled")
+      const statusChoices = {
+        "1": "Confirmed",
+        "2": "Preparing",
+        "3": "Ready for pickup",
+        "4": "Out for delivery",
+        "5": "Completed",
+        "6": "Cancelled"
       };
 
-      if (!actions[action]) return;
-
-      await actions[action]();
-      alert("Order updated successfully.");
+      if (statusChoices[choice]) {
+        await updateOrderStatus(order.id, statusChoices[choice]);
+        alert("Order status updated.");
+      } else if (choice === "7" || choice === "8") {
+        await setFulfilment(
+          order.id,
+          choice === "7" ? "Pickup" : "Delivery"
+        );
+        alert("Fulfilment method updated.");
+      }
     } catch (error) {
       console.error("Order management error:", error);
       alert("Order error: " + error.message);
@@ -128,6 +150,7 @@
     getOrders,
     updateOrderStatus,
     setFulfilment,
+    notifyCustomerOrderStatus,
     showOrderManagement
   };
 })();
