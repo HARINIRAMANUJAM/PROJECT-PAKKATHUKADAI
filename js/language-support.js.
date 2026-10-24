@@ -1,0 +1,146 @@
+
+(() => {
+  "use strict";
+
+  const translations = {
+    en: {
+      title: "Pakkathu Kadai",
+      dashboard: "Shopkeeper Dashboard",
+      customerStore: "Customer Store",
+      inventory: "Inventory",
+      sharedPurchasing: "Shared Purchasing",
+      expiryTracking: "Expiry Tracking & Alerts",
+      customerInsights: "Customer Insights",
+      feedback: "Customer Feedback",
+      pickup: "Pickup from shop",
+      delivery: "Home delivery",
+      save: "Save",
+      cancel: "Cancel",
+      search: "Search products",
+      loading: "Loading...",
+      language: "Language"
+    },
+    ta: {
+      title: "பக்கத்து கடை",
+      dashboard: "கடைக்காரர் முகப்பு",
+      customerStore: "வாடிக்கையாளர் கடை",
+      inventory: "சரக்கு இருப்பு",
+      sharedPurchasing: "கூட்டு மொத்த கொள்முதல்",
+      expiryTracking: "காலாவதி கண்காணிப்பு மற்றும் எச்சரிக்கைகள்",
+      customerInsights: "வாடிக்கையாளர் விவரங்கள்",
+      feedback: "வாடிக்கையாளர் கருத்துகள்",
+      pickup: "கடையிலிருந்து பெற்றுக்கொள்ளுதல்",
+      delivery: "வீட்டிற்கு விநியோகம்",
+      save: "சேமி",
+      cancel: "ரத்து செய்",
+      search: "பொருட்களைத் தேடுங்கள்",
+      loading: "ஏற்றப்படுகிறது...",
+      language: "மொழி"
+    }
+  };
+
+  let currentLanguage = "en";
+
+  function translatePage(language) {
+    if (!translations[language]) return;
+
+    currentLanguage = language;
+    document.documentElement.lang = language === "ta" ? "ta" : "en";
+
+    document.querySelectorAll("[data-i18n]").forEach(element => {
+      const key = element.dataset.i18n;
+      const translated = translations[language][key];
+
+      if (translated) {
+        element.textContent = translated;
+      }
+    });
+
+    document.querySelectorAll("[data-i18n-placeholder]")
+      .forEach(element => {
+        const key = element.dataset.i18nPlaceholder;
+        const translated = translations[language][key];
+
+        if (translated) {
+          element.placeholder = translated;
+        }
+      });
+
+    try {
+      localStorage.setItem("pakkathuLanguage", language);
+    } catch (error) {
+      console.warn("Language preference could not be saved.");
+    }
+
+    document.dispatchEvent(new CustomEvent("pakkathuLanguageChanged", {
+      detail: { language }
+    }));
+  }
+
+  function addLanguageSelector() {
+    if (document.getElementById("pakkathu-language-selector")) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.id = "pakkathu-language-wrapper";
+    wrapper.style.cssText =
+      "margin:12px 0;padding:10px;border-radius:8px;" +
+      "background:#f0f7f1;display:flex;gap:10px;" +
+      "align-items:center;flex-wrap:wrap;";
+
+    const label = document.createElement("label");
+    label.htmlFor = "pakkathu-language-selector";
+    label.textContent = "Language / மொழி:";
+
+    const select = document.createElement("select");
+    select.id = "pakkathu-language-selector";
+    select.setAttribute("aria-label", "Choose language");
+
+    [
+      { value: "en", text: "English" },
+      { value: "ta", text: "தமிழ் (Tamil)" }
+    ].forEach(optionData => {
+      const option = document.createElement("option");
+      option.value = optionData.value;
+      option.textContent = optionData.text;
+      select.appendChild(option);
+    });
+
+    select.addEventListener("change", () => {
+      translatePage(select.value);
+    });
+
+    wrapper.append(label, select);
+
+    const main = document.querySelector("main") || document.body;
+    main.prepend(wrapper);
+  }
+
+  function init() {
+    addLanguageSelector();
+
+    let savedLanguage = "en";
+
+    try {
+      savedLanguage = localStorage.getItem("pakkathuLanguage") || "en";
+    } catch (error) {
+      savedLanguage = "en";
+    }
+
+    const selector = document.getElementById("pakkathu-language-selector");
+    if (selector) selector.value = translations[savedLanguage] ? savedLanguage : "en";
+
+    translatePage(savedLanguage);
+  }
+
+  window.PKLanguageSupport = {
+    translatePage,
+    getLanguage: () => currentLanguage,
+    getTranslations: () => translations[currentLanguage]
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
