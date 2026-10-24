@@ -2,140 +2,183 @@
 (() => {
   "use strict";
 
-  const db = window.supabaseClient;
   const $ = id => document.getElementById(id);
+  const db = window.supabaseClient;
 
-  function getCart() {
+  function readCart() {
     try {
-      return JSON.parse(sessionStorage.getItem("pakkathuCart") || "[]");
+      const cart = JSON.parse(sessionStorage.getItem("pakkathuCart") || "[]");
+      return Array.isArray(cart) ? cart : [];
     } catch {
       return [];
     }
   }
 
-  function getItemName(item) {
+  function itemName(item) {
     return item.name || item.product_name || "Product";
   }
 
-  function getItemPrice(item) {
+  function itemPrice(item) {
     return Number(item.price || 0);
   }
 
-  function getItemQuantity(item) {
+  function itemQuantity(item) {
     return Number(item.quantity || item.qty || 1);
   }
 
-  function getTotal(items) {
-    return items.reduce(
-      (sum, item) => sum + getItemPrice(item) * getItemQuantity(item),
-      0
-    );
+  function renderSummary() {
+    const cart = readCart();
+    const container = $("checkout-items");
+    const totalElement = $("checkout-total");
+
+    if (!container || !totalElement) return;
+
+    if (!cart.length) {
+      container.innerHTML = "<p>Your cart is empty.</p>";
+      totalElement.textContent = "₹0.00";
+      return;
+    }
+
+    container.replaceChildren();
+    let total = 0;
+
+    cart.forEach(item => {
+      const price = itemPrice(item);
+      const quantity = itemQuantity(item);
+      const subtotal = price * quantity;
+      total += subtotal;
+
+      const line = document.createElement("p");
+      line.textContent =
+        `${itemName(item)} × ${quantity} — ₹${subtotal.toFixed(2)}`;
+      container.appendChild(line);
+    });
+
+    totalElement.textContent = `₹${total.toFixed(2)}`;
   }
 
-  function showMessage(message) {
-    alert(message);
+  function updateAddressVisibility() {
+    const method = $("fulfilment-method");
+    const section = $("delivery-address-section");
+    const address = $("delivery-address");
+
+    if (!method || !section || !address) return;
+
+    const delivery = method.value === "Delivery";
+    section.hidden = !delivery;
+    address.required = delivery;
   }
 
-  async function placeOrder() {
+  function setStatus(message, isError = false) {
+    const status = $("checkout-status");
+    if (!status) {
+      alert(message);
+      return;
+    }
+
+    status.textContent = message;
+    status.style.color = isError ? "red" : "";
+  }
+
+  async function placeOrder(event) {
+    event.preventDefault();
+
     if (!db) {
-      showMessage("Supabase is not connected. Please refresh and try again.");
+      setStatus("Supabase is not connected. Refresh and try again.", true);
       return;
     }
 
-    const nameInput = $("customer-name");
-    const phoneInput = $("customer-phone");
-    const addressInput = $("delivery-address");
-    const fulfilmentInput = $("fulfilment-method");
+    const name = $("customer-name").value.trim();
+    const phone = $("customer-phone").value.trim();
+    const fulfilment = $("fulfilment-method")?.value || "Pickup";
+    const address = $("delivery-address")?.value.trim() || "";
+    const cart = readCart();
 
-    if (!nameInput || !phoneInput || !addressInput) {
-      showMessage(
-        "Checkout fields were not found. Check the field IDs in checkout.html."
-      );
-      return;
-    }
-
-    const customerName = nameInput.value.trim();
-    const phone = phoneInput.value.trim();
-    const address = addressInput.value.trim();
-    const fulfilment = fulfilmentInput?.value || "Pickup";
-    const cart = getCart();
-
-    if (!customerName || !phone) {
-      showMessage("Please enter your name and phone number.");
+    if (!name || !phone) {
+      setStatus("Enter your name and phone number.", true);
       return;
     }
 
     if (fulfilment === "Delivery" && !address) {
-      showMessage("Please enter your delivery address.");
+      setStatus("Enter your delivery address.", true);
       return;
     }
 
     if (!cart.length) {
-      showMessage("Your cart is empty.");
+      setStatus("Your cart is empty. Add products before checkout.", true);
       return;
     }
 
     const items = cart.map(item => ({
       id: item.id ?? null,
-      name: getItemName(item),
-      price: getItemPrice(item),
-      quantity: getItemQuantity(item),
+      name: itemName(item),
+      price: itemPrice(item),
+      quantity: itemQuantity(item),
       shop_name: item.shop_name || item.shopName || ""
     }));
 
-    const total = getTotal(cart);
+    const total = items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
 
-    if (!Number.isFinite(total) || total < 0) {
-      showMessage("The cart total is invalid.");
+    if (
+      items.some(item =>
+        !Number.isFinite(item.price) ||
+        item.price < 0 ||
+        !Number.isFinite(item.quantity) ||
+        item.quantity <= 0
+      )
+    ) {
+      setStatus("A cart item has an invalid price or quantity.", true);
       return;
     }
 
-    const order = {
-      customer_name: customerName,
-      phone,
-      delivery_address: fulfilment === "Delivery" ? address : "",
-      items,
-      total,
-      status: "Pending",
-      fulfilment_method: fulfilment
-    };
-
     const button = $("place-order-button");
-    if (button) button.disabled = true;
+    button.disabled = true;
+    setStatus("Placing your order...");
 
     try {
-      const { error } = await db
-        .from("Orders")
-        .insert(order);
+      const order = {
+        customer_name: name,
+        phone,
+        delivery_address: fulfilment === "Delivery" ? address : "",
+        items,
+        total,
+        status: "Pending",
+        fulfilment_method: fulfilment
+      };
+
+      const { error } = await db.from("Orders").insert(order);
 
       if (error) throw error;
 
       sessionStorage.removeItem("pakkathuCart");
-      showMessage(
-        `Order placed successfully!\n` +
-        `Fulfilment: ${fulfilment}\n` +
-        `Total: ₹${total.toFixed(2)}`
-      );
+      renderSummary();
+      $("checkout-form").reset();
+      updateAddressVisibility();
 
-      window.location.href = "index.html";
+      setStatus(
+        `Order placed successfully! ${fulfilment} selected. Total: ₹${total.toFixed(2)}`
+      );
     } catch (error) {
-      console.error("Order submission failed:", error);
-      showMessage("Order failed: " + (error.message || "Unknown error"));
+      console.error("Checkout error:", error);
+      setStatus(`Order failed: ${error.message}`, true);
     } finally {
-      if (button) button.disabled = false;
+      button.disabled = false;
     }
   }
 
-  window.PKCheckout = { placeOrder };
-
   document.addEventListener("DOMContentLoaded", () => {
-    const button = $("place-order-button");
+    renderSummary();
 
-    if (button) {
-      button.addEventListener("click", event => {
-        event.preventDefault();
-        placeOrder();
-      });
-    }
+    $("fulfilment-method")?.addEventListener(
+      "change",
+      updateAddressVisibility
+    );
+
+    $("checkout-form")?.addEventListener("submit", placeOrder);
+
+    updateAddressVisibility();
   });
 })();
