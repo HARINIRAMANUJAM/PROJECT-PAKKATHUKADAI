@@ -1,8 +1,9 @@
+
 (() => {
 "use strict";
+
 const db = window.supabaseClient;
 const $ = id => document.getElementById(id);
-const form = $("account-form");
 let mode = "login";
 
 function setMode(next) {
@@ -20,16 +21,17 @@ $("login-mode").onclick = () => setMode("login");
 $("signup-mode").onclick = () => setMode("signup");
 $("role").onchange = () => setMode(mode);
 
-form.addEventListener("submit", async e => {
+$("account-form").addEventListener("submit", async e => {
   e.preventDefault();
-  const btn = $("submit");
-  const msg = $("msg");
+  const btn = $("submit"), msg = $("msg");
   if (!db) {
-    msg.textContent = "Database connection failed. Check js/supabase.js.";
+    msg.textContent = "Supabase connection unavailable.";
     return;
   }
 
   btn.disabled = true;
+  msg.textContent = "Please wait…";
+
   try {
     const email = $("email").value.trim();
     const password = $("password").value;
@@ -37,31 +39,20 @@ form.addEventListener("submit", async e => {
     let result;
 
     if (mode === "signup") {
-      if (!$("name").value.trim()) throw Error("Enter your full name.");
-      if (role === "shopkeeper" && !$("shop").value.trim())
-        throw Error("Enter your shop name.");
+      if (role === "admin") throw Error("Admin registration is not public.");
 
       result = await db.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: $("name").value.trim(),
-            requested_role: role,
-            shop_name: role === "shopkeeper" ? $("shop").value.trim() : ""
-          }
-        }
+        email, password,
+        options: { data: {
+          full_name: $("name").value.trim(),
+          requested_role: role,
+          shop_name: role === "shopkeeper" ? $("shop").value.trim() : ""
+        }}
       });
       if (result.error) throw result.error;
 
       if (!result.data.session) {
-        msg.textContent = "Account created. Confirm your email, then log in. Shopkeeper and delivery accounts need admin approval.";
-        return;
-      }
-
-      if (role !== "customer") {
-        msg.textContent = "Registration received. Your account is pending admin approval.";
-        await db.auth.signOut();
+        msg.textContent = "Account created. Confirm your email, then log in.";
         return;
       }
     } else {
@@ -73,16 +64,11 @@ form.addEventListener("submit", async e => {
     const { data: profile, error } = await db.from("profiles")
       .select("role,status").eq("id", user.id).maybeSingle();
 
-    if (error || !profile) {
-      await db.auth.signOut();
-      throw Error("Account profile unavailable. Check the database setup.");
-    }
+    if (error || !profile) throw Error("Profile not found. Contact admin.");
 
     if (profile.status !== "active") {
       await db.auth.signOut();
-      msg.textContent = profile.status === "rejected"
-        ? "Your account registration was rejected. Contact admin."
-        : "Your account is pending admin approval.";
+      msg.textContent = "Your account is awaiting admin approval.";
       return;
     }
 
@@ -93,12 +79,9 @@ form.addEventListener("submit", async e => {
       admin: "admin.html"
     };
 
-    if (!pages[profile.role]) {
-      await db.auth.signOut();
-      throw Error("Account role is not permitted.");
-    }
-
+    if (!pages[profile.role]) throw Error("Invalid account role.");
     location.href = pages[profile.role];
+
   } catch (err) {
     msg.textContent = err.message || "Something went wrong.";
   } finally {
