@@ -5,49 +5,61 @@
   const promotions = [];
 
   function addPoints(customerId, points) {
-    if (!customerId || !Number.isFinite(Number(points))) {
-      throw new Error("Valid customer ID and points are required.");
+    const id = String(customerId || "").trim();
+    const amount = Number(points);
+
+    if (!id || !Number.isFinite(amount) || amount < 0) {
+      throw new Error("Enter a valid customer ID and non-negative points.");
     }
 
-    const current = customerPoints.get(customerId) || 0;
-    const updated = Math.max(0, current + Number(points));
-
-    customerPoints.set(customerId, updated);
+    const updated = (customerPoints.get(id) || 0) + amount;
+    customerPoints.set(id, updated);
     return updated;
   }
 
   function getPoints(customerId) {
-    return customerPoints.get(customerId) || 0;
+    return customerPoints.get(String(customerId || "").trim()) || 0;
   }
 
   function addPromotion(title, discountPercent, productName = "") {
+    const name = String(title || "").trim();
     const discount = Number(discountPercent);
 
-    if (!title || !Number.isFinite(discount) ||
-        discount < 0 || discount > 100) {
-      throw new Error("Enter a valid promotion and discount.");
+    if (!name || !Number.isFinite(discount) ||
+        discount <= 0 || discount > 100) {
+      throw new Error("Enter a title and a discount from 1 to 100.");
     }
 
     const promotion = {
       id: Date.now(),
-      title: String(title).trim(),
+      title: name,
       discountPercent: discount,
-      productName: String(productName).trim()
+      productName: String(productName || "").trim(),
+      createdAt: new Date().toISOString()
     };
 
     promotions.push(promotion);
-    return promotion;
+    return { ...promotion };
+  }
+
+  function getPromotions() {
+    return promotions.map(promotion => ({ ...promotion }));
   }
 
   function recommendProducts(products, budget) {
     const limit = Number(budget);
 
-    if (!Array.isArray(products) || !Number.isFinite(limit) || limit < 0) {
+    if (!Array.isArray(products) ||
+        !Number.isFinite(limit) || limit < 0) {
       return [];
     }
 
     return products
-      .filter(product => Number(product.price) <= limit)
+      .filter(product =>
+        Number.isFinite(Number(product.price)) &&
+        Number(product.price) <= limit
+      )
+      .slice()
       .sort((a, b) => Number(a.price) - Number(b.price));
   }
 
@@ -55,7 +67,7 @@
     addPoints,
     getPoints,
     addPromotion,
-    getPromotions: () => [...promotions],
+    getPromotions,
     recommendProducts
   };
 })();
