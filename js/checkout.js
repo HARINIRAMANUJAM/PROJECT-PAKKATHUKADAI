@@ -2,138 +2,140 @@
 (() => {
   "use strict";
 
-  const cart = JSON.parse(
-    sessionStorage.getItem("pakkathuCart") || "[]"
-  );
+  const db = window.supabaseClient;
+  const $ = id => document.getElementById(id);
 
-  const itemsBox = document.getElementById("checkout-items");
-  const totalBox = document.getElementById("checkout-total");
-  const form = document.getElementById("checkout-form");
-  const status = document.getElementById("checkout-status");
-  const button = document.getElementById("place-order-button");
-
-  const getShop = item =>
-    item.shop || item.shop_name || "Local shop";
-
-  const getItemTotal = item =>
-    Number(item.price) * Number(item.quantity);
-
-  const total = cart.reduce(
-    (sum, item) => sum + getItemTotal(item),
-    0
-  );
-
-  if (itemsBox) {
-    itemsBox.replaceChildren();
-
-    if (cart.length === 0) {
-      itemsBox.textContent = "Your cart is empty.";
-    } else {
-      cart.forEach(item => {
-        const p = document.createElement("p");
-        p.textContent =
-          `${item.name} × ${Number(item.quantity)} — ${getShop(item)}`;
-        itemsBox.appendChild(p);
-      });
+  function getCart() {
+    try {
+      return JSON.parse(sessionStorage.getItem("pakkathuCart") || "[]");
+    } catch {
+      return [];
     }
   }
 
-  if (totalBox) {
-    totalBox.textContent = `₹${total.toFixed(2)}`;
+  function getItemName(item) {
+    return item.name || item.product_name || "Product";
   }
 
-  form?.addEventListener("submit", async event => {
-    event.preventDefault();
+  function getItemPrice(item) {
+    return Number(item.price || 0);
+  }
+
+  function getItemQuantity(item) {
+    return Number(item.quantity || item.qty || 1);
+  }
+
+  function getTotal(items) {
+    return items.reduce(
+      (sum, item) => sum + getItemPrice(item) * getItemQuantity(item),
+      0
+    );
+  }
+
+  function showMessage(message) {
+    alert(message);
+  }
+
+  async function placeOrder() {
+    if (!db) {
+      showMessage("Supabase is not connected. Please refresh and try again.");
+      return;
+    }
+
+    const nameInput = $("customer-name");
+    const phoneInput = $("customer-phone");
+    const addressInput = $("delivery-address");
+    const fulfilmentInput = $("fulfilment-method");
+
+    if (!nameInput || !phoneInput || !addressInput) {
+      showMessage(
+        "Checkout fields were not found. Check the field IDs in checkout.html."
+      );
+      return;
+    }
+
+    const customerName = nameInput.value.trim();
+    const phone = phoneInput.value.trim();
+    const address = addressInput.value.trim();
+    const fulfilment = fulfilmentInput?.value || "Pickup";
+    const cart = getCart();
+
+    if (!customerName || !phone) {
+      showMessage("Please enter your name and phone number.");
+      return;
+    }
+
+    if (fulfilment === "Delivery" && !address) {
+      showMessage("Please enter your delivery address.");
+      return;
+    }
 
     if (!cart.length) {
-      status.textContent = "Your cart is empty.";
+      showMessage("Your cart is empty.");
       return;
     }
 
-    const db = window.supabaseClient;
+    const items = cart.map(item => ({
+      id: item.id ?? null,
+      name: getItemName(item),
+      price: getItemPrice(item),
+      quantity: getItemQuantity(item),
+      shop_name: item.shop_name || item.shopName || ""
+    }));
 
-    if (!db) {
-      status.textContent = "Database connection is not configured.";
+    const total = getTotal(cart);
+
+    if (!Number.isFinite(total) || total < 0) {
+      showMessage("The cart total is invalid.");
       return;
     }
 
-    button.disabled = true;
-    status.textContent = "Placing your order...";
+    const order = {
+      customer_name: customerName,
+      phone,
+      delivery_address: fulfilment === "Delivery" ? address : "",
+      items,
+      total,
+      status: "Pending",
+      fulfilment_method: fulfilment
+    };
+
+    const button = $("place-order-button");
+    if (button) button.disabled = true;
 
     try {
-      const customerName =
-        document.getElementById("customer-name").value.trim();
-      const phone =
-        document.getElementById("customer-phone").value.trim();
-      const address =
-        document.getElementById("delivery-address").value.trim();
-
-      if (!customerName || !phone || !address) {
-        status.textContent = "Please fill in all checkout details.";
-        button.disabled = false;
-        return;
-      }
-
-      // Group items by their actual shop name.
-      const shopGroups = new Map();
-
-      cart.forEach(item => {
-        const shopName = getShop(item);
-
-        if (!shopGroups.has(shopName)) {
-          shopGroups.set(shopName, []);
-        }
-
-        shopGroups.get(shopName).push(item);
-      });
-
-      // Build one database row per shop.
-      const orders = Array.from(shopGroups.entries()).map(
-        ([shopName, items]) => ({
-          customer_name: customerName,
-          phone,
-          delivery_address: address,
-          items,
-          total: items.reduce(
-            (sum, item) => sum + getItemTotal(item),
-            0
-          ),
-          status: "Pending"
-        })
-      );
-
-      console.log("Shop groups:", [...shopGroups.keys()]);
-      console.log("Orders being submitted:", orders);
-
       const { error } = await db
         .from("Orders")
-        .insert(orders);
+        .insert(order);
 
-      if (error) {
-        status.textContent = "Order failed: " + error.message;
-        button.disabled = false;
-        return;
-      }
+      if (error) throw error;
 
       sessionStorage.removeItem("pakkathuCart");
+      showMessage(
+        `Order placed successfully!\n` +
+        `Fulfilment: ${fulfilment}\n` +
+        `Total: ₹${total.toFixed(2)}`
+      );
 
-      status.textContent =
-        `Order placed successfully! ${orders.length} shop order(s) created.`;
-
-      form.reset();
-
-      if (itemsBox) {
-        itemsBox.textContent = "Order confirmed!";
-      }
-
-      if (totalBox) {
-        totalBox.textContent = "₹0.00";
-      }
-
-      button.disabled = true;
+      window.location.href = "index.html";
     } catch (error) {
-      status.textContent = "Order failed: " + error.message;
-      button.disabled = false;
+      console.error("Order submission failed:", error);
+      showMessage("Order failed: " + (error.message || "Unknown error"));
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  window.PKCheckout = { placeOrder };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const button = $("place-order-button");
+
+    if (button) {
+      button.addEventListener("click", event => {
+        event.preventDefault();
+        placeOrder();
+      });
     }
   });
 })();
