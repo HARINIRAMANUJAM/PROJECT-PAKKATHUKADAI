@@ -24,13 +24,15 @@
       throw new Error("Choose pickup or delivery.");
     }
 
-    if (type === "delivery" && !String(address).trim()) {
+    const cleanAddress = String(address || "").trim();
+
+    if (type === "delivery" && !cleanAddress) {
       throw new Error("A delivery address is required.");
     }
 
     return {
       type,
-      address: type === "delivery" ? String(address).trim() : ""
+      address: type === "delivery" ? cleanAddress : ""
     };
   }
 
@@ -42,6 +44,8 @@
     return {
       orderId: order.id,
       customer: order.customer_name || "Customer",
+      phone: order.phone || "",
+      address: order.delivery_address || "",
       items: order.items || [],
       total: Number(order.total) || 0,
       status: order.status || "pending",
@@ -51,12 +55,13 @@
 
   function createWhatsAppLink(phone, message) {
     const number = String(phone || "").replace(/\D/g, "");
+    const text = String(message || "").trim();
 
-    if (!number || !message) {
+    if (!number || !text) {
       throw new Error("Phone number and message are required.");
     }
 
-    return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+    return `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
   }
 
   window.PKOrderManagement = {
