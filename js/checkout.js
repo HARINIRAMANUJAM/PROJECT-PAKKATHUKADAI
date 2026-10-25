@@ -1,4 +1,3 @@
-
 (() => {
   "use strict";
 
@@ -7,7 +6,9 @@
 
   function readCart() {
     try {
-      const cart = JSON.parse(sessionStorage.getItem("pakkathuCart") || "[]");
+      const cart = JSON.parse(
+        sessionStorage.getItem("pakkathuCart") || "[]"
+      );
       return Array.isArray(cart) ? cart : [];
     } catch {
       return [];
@@ -71,6 +72,7 @@
 
   function setStatus(message, isError = false) {
     const status = $("checkout-status");
+
     if (!status) {
       alert(message);
       return;
@@ -84,18 +86,28 @@
     event.preventDefault();
 
     if (!db) {
-      setStatus("Supabase is not connected. Refresh and try again.", true);
+      setStatus(
+        "Supabase is not connected. Refresh and try again.",
+        true
+      );
       return;
     }
 
-    const name = $("customer-name").value.trim();
-    const phone = $("customer-phone").value.trim();
-    const fulfilment = $("fulfilment-method")?.value || "Pickup";
-    const address = $("delivery-address")?.value.trim() || "";
+    const name = $("customer-name")?.value.trim() || "";
+    const phone = $("customer-phone")?.value.trim() || "";
+    const fulfilment =
+      $("fulfilment-method")?.value || "Pickup";
+    const address =
+      $("delivery-address")?.value.trim() || "";
     const cart = readCart();
 
     if (!name || !phone) {
       setStatus("Enter your name and phone number.", true);
+      return;
+    }
+
+    if (!["Pickup", "Delivery"].includes(fulfilment)) {
+      setStatus("Choose Pickup or Delivery.", true);
       return;
     }
 
@@ -105,7 +117,10 @@
     }
 
     if (!cart.length) {
-      setStatus("Your cart is empty. Add products before checkout.", true);
+      setStatus(
+        "Your cart is empty. Add products before checkout.",
+        true
+      );
       return;
     }
 
@@ -130,32 +145,39 @@
         item.quantity <= 0
       )
     ) {
-      setStatus("A cart item has an invalid price or quantity.", true);
+      setStatus(
+        "A cart item has an invalid price or quantity.",
+        true
+      );
       return;
     }
 
     const button = $("place-order-button");
-    button.disabled = true;
+    if (button) button.disabled = true;
+
     setStatus("Placing your order...");
 
     try {
       const order = {
         customer_name: name,
         phone,
-        delivery_address: fulfilment === "Delivery" ? address : "",
+        delivery_address:
+          fulfilment === "Delivery" ? address : "",
         items,
         total,
         status: "Pending",
-        fulfilment_method: fulfilment
+        delivery_method: fulfilment
       };
 
-      const { error } = await db.from("Orders").insert(order);
+      const { error } = await db
+        .from("Orders")
+        .insert(order);
 
       if (error) throw error;
 
       sessionStorage.removeItem("pakkathuCart");
       renderSummary();
-      $("checkout-form").reset();
+      $("checkout-form")?.reset();
       updateAddressVisibility();
 
       setStatus(
@@ -165,7 +187,7 @@
       console.error("Checkout error:", error);
       setStatus(`Order failed: ${error.message}`, true);
     } finally {
-      button.disabled = false;
+      if (button) button.disabled = false;
     }
   }
 
@@ -177,7 +199,10 @@
       updateAddressVisibility
     );
 
-    $("checkout-form")?.addEventListener("submit", placeOrder);
+    $("checkout-form")?.addEventListener(
+      "submit",
+      placeOrder
+    );
 
     updateAddressVisibility();
   });
