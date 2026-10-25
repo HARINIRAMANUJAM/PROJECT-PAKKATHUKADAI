@@ -1,50 +1,157 @@
-
 (() => {
   "use strict";
 
-  window.showOrderTracker = async function () {
-    const db = window.supabaseClient;
+  function getClient() {
+    const candidates = [
+      window.supabaseClient,
+      window.sbClient,
+      window.client
+    ];
 
-    if (!db) {
-      alert("Supabase is not connected.");
-      return;
+    return candidates.find(
+      client => client && typeof client.from === "function"
+    ) || null;
+  }
+
+  function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[char]);
+  }
+
+  const statusSteps = [
+    "Pending",
+    "Confirmed",
+    "Preparing",
+    "Ready for pickup",
+    "Out for delivery",
+    "Completed"
+  ];
+
+  async function getOrder(orderId, phone) {
+    const client = getClient();
+
+    if (!client) {
+      throw new Error("Supabase client is unavailable.");
     }
 
-    const { data, error } = await db
+    if (!orderId || !phone) {
+      throw new Error("Order ID and phone number are required.");
+    }
+
+    const { data, error } = await client
       .from("Orders")
-      .select("id, customer_name, total, status, created_at")
-      .order("created_at", { ascending: false });
+      .select("id, customer_name, phone, items, total, status, delivery_method, created_at")
+      .eq("id", orderId)
+      .eq("phone", phone)
+      .maybeSingle();
 
-    if (error) {
-      alert("Could not load orders: " + error.message);
-      return;
+    if (error) throw error;
+
+    if (!data) {
+      throw new Error("Order not found. Check the order ID and phone number.");
     }
 
-    if (!data || data.length === 0) {
-      alert("No orders found.");
-      return;
+    return data;
+  }
+
+  function renderOrder(order, container) {
+    if (!container) {
+      throw new Error("Order display element was not found.");
     }
 
-    const summary = data.reduce((result, order) => {
-      const status = String(order.status || "pending").toLowerCase();
-      result[status] = (result[status] || 0) + 1;
-      return result;
-    }, {});
+    const status = order.status || "Pending";
+    const currentStep = statusSteps.indexOf(status);
 
-    const details = data.slice(0, 10).map(order =>
-      `Order #${order.id}\n` +
-      `Customer: ${order.customer_name || "N/A"}\n` +
-      `Total: ₹${Number(order.total || 0).toFixed(2)}\n` +
-      `Status: ${order.status || "pending"}`
-    );
+    const progress = statusSteps.map((step, index) => {
+      const complete = currentStep >= 0 && index <= currentStep;
 
-    alert(
-      "📦 ORDER TRACKER\n\n" +
-      Object.entries(summary)
-        .map(([status, count]) => `${status}: ${count}`)
-        .join("\n") +
-      "\n\nLATEST ORDERS\n\n" +
-      details.join("\n\n")
-    );
+      return `
+        <div style="padding:8px;margin:5px 0;border-radius:6px;
+          background:${complete ? "#e4f6e9" : "#f3f4f6"};">
+          ${complete ? "✓" : "○"} ${escapeHTML(step)}
+        </div>
+      `;
+    }).join("");
+
+    const items = Array.isArray(order.items)
+      ? order.items.map(item => {
+          const name = escapeHTML(item.name || item.product_name || "Item");
+          const quantity = escapeHTML(item.quantity ?? 1);
+          return `<li>${name} × ${quantity}</li>`;
+        }).join("")
+      : "<li>Order item details unavailable</li>";
+
+    container.innerHTML = `
+      <section style="border:1px solid #ddd;border-radius:10px;padding:16px;">
+        <h3>Order #${escapeHTML(order.id)}</h3>
+        <p><strong>Customer:</strong> ${escapeHTML(order.customer_name)}</p>
+        <p><strong>Status:</strong> ${escapeHTML(status)}</p>
+        <p><strong>Method:</strong> ${escapeHTML(order.delivery_method || "Not specified")}</p>
+        <p><strong>Total:</strong> ₹${escapeHTML(order.total)}</p>
+        <h4>Items</h4>
+        <ul>${items}</ul>
+        <h4>Order progress</h4>
+        ${status === "Cancelled"
+          ? "<p style='color:#b42318'>This order was cancelled.</p>"
+          : progress}
+        <small>Last available order record: ${
+          escapeHTML(order.created_at ? new Date(order.created_at).toLocaleString() : "Unknown")
+        }</small>
+      </section>
+    `;
+  }
+
+  async function trackOrder(orderId, phone, containerId = "order-tracking-result") {
+    const container = document.getElementById(containerId);
+
+    if (container) container.textContent = "Loading order...";
+
+    try {
+      const order = await getOrder(orderId, phone);
+      renderOrder(order, container);
+      return order;
+    } catch (error) {
+      if (container) {
+        container.textContent = error.message || "Unable to load this order.";
+      }
+      throw error;
+    }
+  }
+
+  function init() {
+    const form = document.getElementById("order-tracking-form");
+    if (!form || form.dataset.pkTrackerBound === "true") return;
+
+    form.dataset.pkTrackerBound = "true";
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const orderId = document.getElementById("tracking-order-id")?.value.trim();
+      const phone = document.getElementById("tracking-phone")?.value.trim();
+
+      try {
+        await trackOrder(orderId, phone);
+      } catch (_) {
+        // The error is displayed in the tracking result area.
+      }
+    });
+  }
+
+  window.PKOrderTracker = {
+    getOrder,
+    renderOrder,
+    trackOrder
   };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
