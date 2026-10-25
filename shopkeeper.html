@@ -1,4 +1,4 @@
-
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,6 +12,7 @@
       --green: #147a4b;
       --bg: #f4f7f5;
       --ink: #18332a;
+      --red: #b42318;
     }
 
     * { box-sizing: border-box; }
@@ -90,12 +91,22 @@
       color: #175c3b;
     }
 
+    button.danger { background: var(--red); }
+    button.small { padding: 7px 9px; font-size: 12px; }
+
     input, select, textarea {
+      width: 100%;
       padding: 10px;
       border: 1px solid #ccd9d0;
       border-radius: 7px;
-      max-width: 100%;
       margin: 4px 0;
+      font: inherit;
+    }
+
+    label {
+      display: block;
+      margin: 8px 0;
+      font-weight: 600;
     }
 
     table { width: 100%; border-collapse: collapse; }
@@ -109,21 +120,16 @@
     th { background: #f1f7f3; }
     .table-wrap { overflow-x: auto; }
     .muted { color: #66786f; }
-    .hidden { display: none; }
-
-    #inventory-status,
-    #purchase-status,
-    #expiry-status,
-    #voice-stock-status {
-      margin-top: 10px;
-      color: #48675a;
-    }
-
-    a { color: var(--green); }
+    .hidden { display: none !important; }
+    .status { margin-top: 10px; overflow-wrap: anywhere; }
+    .actions-cell { min-width: 145px; }
+    .badge { font-weight: bold; color: var(--green); }
+    .badge.low { color: var(--red); }
 
     @media (max-width: 600px) {
       .top h1 { font-size: 20px; }
       section { padding: 13px; }
+      table { min-width: 760px; }
     }
   </style>
 </head>
@@ -146,8 +152,8 @@
   <div class="hero">
     <h2>Shopkeeper Dashboard</h2>
     <p>Manage stock, orders, shared buying, suppliers and business insights.</p>
-    <button type="button" onclick="window.loadProducts?.()">Refresh inventory</button>
-    <button type="button" class="secondary" onclick="window.addNewProduct?.()">＋ Add product</button>
+    <button type="button" onclick="window.loadProducts()">Refresh inventory</button>
+    <button type="button" class="secondary" onclick="window.addNewProduct()">＋ Add product</button>
   </div>
 
   <div class="stats">
@@ -167,7 +173,7 @@
 
   <section>
     <h2>Inventory</h2>
-    <p class="muted">Live product list from Supabase.</p>
+    <p class="muted">Live product list from Supabase. Use Edit or Delete beside a product.</p>
 
     <input id="inventory-search"
       placeholder="Search product or shop…"
@@ -182,30 +188,61 @@
             <th>Price</th>
             <th>Stock</th>
             <th>Availability</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="inventory-body">
-          <tr><td colspan="5">Connecting…</td></tr>
+          <tr><td colspan="6">Connecting…</td></tr>
         </tbody>
       </table>
     </div>
 
     <p id="inventory-status" role="status">Connecting to database…</p>
-    <button type="button" onclick="window.addNewProduct?.()">Add product</button>
+    <button type="button" onclick="window.addNewProduct()">Add product</button>
     <button type="button" class="secondary" onclick="window.checkLowStock?.()">Low-stock alert</button>
     <button type="button" class="secondary" onclick="window.exportInventoryCSV?.()">Export inventory CSV</button>
     <button type="button" class="secondary" onclick="window.showInventoryReport?.()">Inventory report</button>
   </section>
 
+  <section id="product-form-panel" class="hidden">
+    <h2 id="product-form-heading">Add product</h2>
+    <form id="product-form">
+      <label for="product-name">Product name</label>
+      <input id="product-name" required maxlength="120">
+
+      <label for="product-shop">Shop name</label>
+      <input id="product-shop" required maxlength="120">
+
+      <label for="product-price">Price (₹)</label>
+      <input id="product-price" type="number" min="0.01" step="0.01" required>
+
+      <label for="product-quantity">Quantity in stock</label>
+      <input id="product-quantity" type="number" min="0" step="any" required>
+
+      <label for="product-unit">Unit</label>
+      <select id="product-unit" required>
+        <option value="piece">Piece</option>
+        <option value="kg">Kilogram (kg)</option>
+        <option value="g">Gram (g)</option>
+        <option value="litre">Litre</option>
+        <option value="ml">Millilitre (ml)</option>
+        <option value="packet">Packet</option>
+        <option value="box">Box</option>
+        <option value="dozen">Dozen</option>
+      </select>
+
+      <div>
+        <button type="submit" id="save-product-button">Save product</button>
+        <button type="button" class="secondary" id="cancel-product-button">Cancel</button>
+      </div>
+      <p id="product-form-status" class="status" role="status"></p>
+    </form>
+  </section>
+
   <section>
     <h2>Orders & Customer Tools</h2>
     <p>View orders and update their status.</p>
-
-    <button type="button"
-      onclick="window.PKOrderManagement?.showOrderManagement?.()">
-      Manage Orders
-    </button>
-
+    <button type="button" onclick="window.PKOrderManagement?.showOrderManagement?.()">Manage Orders</button>
     <button type="button" onclick="window.showOrderDelivery?.()">Delivery / Pickup Orders</button>
     <button type="button" onclick="window.showOrderTracker?.()">Order Tracker</button>
     <button type="button" onclick="window.showCustomerInsights?.()">Customer Insights</button>
@@ -240,36 +277,31 @@
   <section>
     <h2>Shared Wholesale Purchasing</h2>
     <p>Coordinate bulk purchases with nearby shopkeepers.</p>
-
     <button type="button" id="create-purchase-button">Create Purchase Request</button>
-    <button type="button" class="secondary" id="browse-purchases-button"
+    <button type="button" class="secondary"
       onclick="document.getElementById('purchase-list')?.scrollIntoView({behavior:'smooth'})">
       Browse Requests
     </button>
 
     <div id="purchase-workspace" class="hidden">
       <form id="purchase-form">
-        <label>Product<br>
+        <label>Product
           <input id="bulk-product" required placeholder="e.g. rice">
-        </label><br>
-
-        <label>Total quantity<br>
+        </label>
+        <label>Total quantity
           <input id="bulk-quantity" required type="number" min="1" placeholder="Quantity">
-        </label><br>
-
-        <label>Unit<br>
+        </label>
+        <label>Unit
           <select id="bulk-unit">
             <option>kg</option>
             <option>litre</option>
             <option>pieces</option>
             <option>bags</option>
           </select>
-        </label><br>
-
-        <label>Notes<br>
+        </label>
+        <label>Notes
           <textarea id="bulk-notes" placeholder="Preferred supplier / target price"></textarea>
-        </label><br>
-
+        </label>
         <button type="submit">Save Request</button>
         <button type="button" class="secondary" id="cancel-purchase-button">Cancel</button>
       </form>
@@ -298,19 +330,14 @@
     <button type="button" onclick="window.PKLanguageSupport?.toggle?.()">Tamil / English</button>
   </section>
 
-  <p class="muted">
-    Some features may require additional database tables, columns or permissions.
-  </p>
+  <p class="muted">Some features may require additional database tables, columns or permissions.</p>
 </main>
 
-<!-- Load Supabase before all scripts that use the database. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 
-<!-- Inventory -->
-<script src="js/shopkeeper.js"></script>
-<script src="js/add-product.js"></script>
-<script src="js/manage-products.js"></script>
+<!-- Other existing feature files. Inventory CRUD is handled below to avoid
+     duplicate product-row renderers from shopkeeper.js/manage-products.js. -->
 <script src="js/low-stock.js"></script>
 <script src="js/smart-inventory.js"></script>
 <script src="js/restock-suggestions.js"></script>
@@ -318,16 +345,12 @@
 <script src="js/expiry-alerts.js"></script>
 <script src="js/inventory-report.js"></script>
 <script src="js/backup-export.js"></script>
-
-<!-- Shared purchasing -->
 <script src="js/bulk-purchase.js"></script>
 
-<!-- Orders -->
 <script src="js/order-management.js"></script>
 <script src="js/order-delivery.js"></script>
 <script src="js/order-tracker.js"></script>
 
-<!-- Business tools -->
 <script src="js/ai-insights.js"></script>
 <script src="js/discount-suggestions.js"></script>
 <script src="js/price-change-tracker.js"></script>
@@ -341,7 +364,6 @@
 <script src="js/business-analytics.js"></script>
 <script src="js/business-manager.js"></script>
 
-<!-- Suppliers and innovations -->
 <script src="js/supplier-management.js"></script>
 <script src="js/supplier-hub.js"></script>
 <script src="js/supplier-contact.js"></script>
@@ -350,5 +372,271 @@
 <script src="js/language-support.js"></script>
 <script src="js/rewards.js"></script>
 <script src="js/advertisements.js"></script>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = id => document.getElementById(id);
+  const db = () => window.supabaseClient;
+
+  let products = [];
+  let editingId = null;
+
+  const setStatus = (message, error = false) => {
+    const element = $("inventory-status");
+    element.textContent = message;
+    element.style.color = error ? "#b42318" : "";
+  };
+
+  const escapeHTML = value => String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[char]));
+
+  const money = value => "₹" + Number(value || 0).toFixed(2);
+
+  async function loadProducts() {
+    const client = db();
+
+    if (!client) {
+      setStatus("Supabase is not connected. Check js/supabase.js.", true);
+      $("inventory-body").innerHTML =
+        '<tr><td colspan="6">Supabase is not connected.</td></tr>';
+      return;
+    }
+
+    setStatus("Loading products…");
+
+    const { data, error } = await client
+      .from("Products")
+      .select("id, name, price, quantity, shop_name, unit")
+      .order("name", { ascending: true });
+
+    if (error) {
+      setStatus("Could not load products: " + error.message, true);
+      $("inventory-body").innerHTML =
+        '<tr><td colspan="6">Could not load products.</td></tr>';
+      return;
+    }
+
+    products = data || [];
+    renderProducts();
+    updateStats();
+    setStatus(`Loaded ${products.length} products.`);
+  }
+
+  function updateStats() {
+    $("stat-products").textContent = products.length;
+    $("stat-low-stock").textContent = products.filter(product =>
+      Number(product.quantity) > 0 && Number(product.quantity) <= 5
+    ).length;
+    $("stat-groups").textContent = new Set(
+      products.map(product => product.shop_name).filter(Boolean)
+    ).size;
+  }
+
+  function renderProducts() {
+    const search = $("inventory-search").value.trim().toLowerCase();
+
+    const filtered = products.filter(product =>
+      String(product.name || "").toLowerCase().includes(search) ||
+      String(product.shop_name || "").toLowerCase().includes(search)
+    );
+
+    if (!filtered.length) {
+      $("inventory-body").innerHTML =
+        '<tr><td colspan="6">No matching products found.</td></tr>';
+      return;
+    }
+
+    $("inventory-body").innerHTML = filtered.map(product => {
+      const quantity = Number(product.quantity || 0);
+      const availability = quantity <= 0
+        ? '<span class="badge low">Out of stock</span>'
+        : quantity <= 5
+          ? '<span class="badge low">Low stock</span>'
+          : '<span class="badge">Available</span>';
+
+      return `
+        <tr>
+          <td>${escapeHTML(product.name)}</td>
+          <td>${escapeHTML(product.shop_name || "—")}</td>
+          <td>${money(product.price)}</td>
+          <td>${escapeHTML(product.quantity)} ${escapeHTML(product.unit || "")}</td>
+          <td>${availability}</td>
+          <td class="actions-cell">
+            <button type="button" class="small edit-product"
+              data-id="${escapeHTML(product.id)}">Edit</button>
+            <button type="button" class="small danger delete-product"
+              data-id="${escapeHTML(product.id)}">Delete</button>
+          </td>
+        </tr>`;
+    }).join("");
+  }
+
+  function showProductForm(product = null) {
+    editingId = product ? product.id : null;
+
+    $("product-form-heading").textContent =
+      product ? "Edit product" : "Add product";
+    $("save-product-button").textContent =
+      product ? "Update product" : "Save product";
+
+    $("product-name").value = product?.name || "";
+    $("product-shop").value = product?.shop_name || "";
+    $("product-price").value = product?.price ?? "";
+    $("product-quantity").value = product?.quantity ?? "";
+    $("product-unit").value = product?.unit || "piece";
+    $("product-form-status").textContent = "";
+
+    $("product-form-panel").classList.remove("hidden");
+    $("product-form-panel").scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
+
+  function closeProductForm() {
+    $("product-form").reset();
+    $("product-form-panel").classList.add("hidden");
+    $("product-form-status").textContent = "";
+    editingId = null;
+  }
+
+  window.loadProducts = loadProducts;
+  window.addNewProduct = () => showProductForm();
+
+  $("inventory-search").addEventListener("input", renderProducts);
+  $("cancel-product-button").addEventListener("click", closeProductForm);
+
+  $("product-form").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const client = db();
+    if (!client) {
+      $("product-form-status").textContent = "Supabase is not connected.";
+      return;
+    }
+
+    const product = {
+      name: $("product-name").value.trim(),
+      shop_name: $("product-shop").value.trim(),
+      price: Number($("product-price").value),
+      quantity: Number($("product-quantity").value),
+      unit: $("product-unit").value
+    };
+
+    if (
+      !product.name ||
+      !product.shop_name ||
+      !Number.isFinite(product.price) ||
+      product.price <= 0 ||
+      !Number.isFinite(product.quantity) ||
+      product.quantity < 0
+    ) {
+      $("product-form-status").textContent =
+        "Enter a valid name, shop, price and quantity.";
+      return;
+    }
+
+    const button = $("save-product-button");
+    button.disabled = true;
+    $("product-form-status").textContent = "Saving product…";
+
+    try {
+      let result;
+
+      if (editingId !== null) {
+        result = await client
+          .from("Products")
+          .update(product)
+          .eq("id", editingId);
+      } else {
+        result = await client
+          .from("Products")
+          .insert([product]);
+      }
+
+      if (result.error) throw result.error;
+
+      closeProductForm();
+      await loadProducts();
+    } catch (error) {
+      $("product-form-status").textContent =
+        "Could not save product: " + error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("inventory-body").addEventListener("click", async event => {
+    const editButton = event.target.closest(".edit-product");
+    const deleteButton = event.target.closest(".delete-product");
+
+    if (editButton) {
+      const product = products.find(
+        item => String(item.id) === editButton.dataset.id
+      );
+      if (product) showProductForm(product);
+      return;
+    }
+
+    if (deleteButton) {
+      const product = products.find(
+        item => String(item.id) === deleteButton.dataset.id
+      );
+      if (!product) return;
+
+      if (!confirm(`Delete "${product.name}" from inventory?`)) return;
+
+      const client = db();
+      if (!client) {
+        setStatus("Supabase is not connected.", true);
+        return;
+      }
+
+      deleteButton.disabled = true;
+      setStatus("Deleting product…");
+
+      try {
+        const { data, error } = await client
+          .from("Products")
+          .delete()
+          .eq("id", product.id)
+          .select("id");
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          throw new Error(
+            "No product was deleted. Check the table's DELETE permission and RLS policy."
+          );
+        }
+
+        await loadProducts();
+      } catch (error) {
+        setStatus("Could not delete product: " + error.message, true);
+        deleteButton.disabled = false;
+      }
+    }
+  });
+
+  $("create-purchase-button").addEventListener("click", () => {
+    $("purchase-workspace").classList.remove("hidden");
+  });
+
+  $("cancel-purchase-button").addEventListener("click", () => {
+    $("purchase-workspace").classList.add("hidden");
+  });
+
+  document.addEventListener("DOMContentLoaded", loadProducts);
+  if (document.readyState !== "loading") loadProducts();
+})();
+</script>
 </body>
 </html>
+```
