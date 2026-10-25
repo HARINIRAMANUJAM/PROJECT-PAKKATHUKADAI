@@ -8,14 +8,22 @@
   <link rel="stylesheet" href="css/style.css">
 
   <style>
+    :root {
+      --green: #147a4b;
+      --bg: #f4f7f5;
+      --ink: #18332a;
+    }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      background: #f4f7f5;
-      color: #18332a;
+      background: var(--bg);
+      color: var(--ink);
       font: 15px Arial, sans-serif;
     }
-    header {
+
+    .top {
       background: white;
       padding: 18px;
       border-bottom: 1px solid #dce8e0;
@@ -25,39 +33,63 @@
       gap: 12px;
       flex-wrap: wrap;
     }
-    main { max-width: 1100px; margin: 22px auto; padding: 0 14px; }
-    .hero {
-      background: #147a4b;
-      color: white;
-      border-radius: 14px;
-      padding: 22px;
+
+    .top h1 { margin: 0; font-size: 24px; }
+    .top p { margin: 5px 0 0; color: #60756b; }
+
+    main {
+      max-width: 1100px;
+      margin: 22px auto;
+      padding: 0 14px;
     }
-    .stats {
+
+    .hero {
+      background: var(--green);
+      color: white;
+      border-radius: 16px;
+      padding: 22px;
+      margin-bottom: 16px;
+    }
+
+    .stats, .features {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 12px;
     }
-    section, .card {
+
+    .card, section {
       background: white;
       border: 1px solid #e0e9e3;
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 13px;
+      padding: 17px;
       margin: 14px 0;
+      box-shadow: 0 3px 12px #18332a08;
     }
-    .stat { font-size: 27px; font-weight: bold; margin-top: 8px; }
-    .muted { color: #66786f; }
+
+    .stat {
+      font-size: 28px;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+
     button, .btn {
       display: inline-block;
       border: 0;
       border-radius: 8px;
       padding: 10px 13px;
-      background: #147a4b;
+      background: var(--green);
       color: white;
       text-decoration: none;
       cursor: pointer;
-      margin: 4px;
+      margin: 4px 4px 4px 0;
+      font-weight: 600;
     }
-    .secondary { background: #e7f3eb; color: #175c3b; }
+
+    button.secondary, .secondary {
+      background: #e7f3eb;
+      color: #175c3b;
+    }
+
     input, select, textarea {
       padding: 10px;
       border: 1px solid #ccd9d0;
@@ -65,33 +97,57 @@
       max-width: 100%;
       margin: 4px 0;
     }
+
     table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e5ece7; }
+
+    th, td {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid #e5ece7;
+    }
+
     th { background: #f1f7f3; }
     .table-wrap { overflow-x: auto; }
+    .muted { color: #66786f; }
     .hidden { display: none; }
+
+    #inventory-status,
+    #purchase-status,
+    #expiry-status,
+    #voice-stock-status {
+      margin-top: 10px;
+      color: #48675a;
+    }
+
+    a { color: var(--green); }
+
+    @media (max-width: 600px) {
+      .top h1 { font-size: 20px; }
+      section { padding: 13px; }
+    }
   </style>
 </head>
 
 <body>
-<header>
+<header class="top">
   <div>
     <h1>🥬 Pakkathu Kadai</h1>
-    <p class="muted">Shopkeeper workspace</p>
+    <p>Shopkeeper workspace · Local business, smarter together</p>
   </div>
+
   <nav>
     <a class="btn secondary" href="index.html">Customer Store</a>
     <a class="btn secondary" href="account.html">Account / Login</a>
-    <button onclick="window.loadProducts?.()">Refresh</button>
+    <button type="button" onclick="window.location.reload()">Refresh</button>
   </nav>
 </header>
 
 <main>
   <div class="hero">
     <h2>Shopkeeper Dashboard</h2>
-    <p>Manage inventory, orders, expiry alerts, suppliers and business insights.</p>
-    <button onclick="window.loadProducts?.()">Refresh inventory</button>
-    <button onclick="window.addNewProduct?.()">＋ Add product</button>
+    <p>Manage stock, orders, shared buying, suppliers and business insights.</p>
+    <button type="button" onclick="window.loadProducts?.()">Refresh inventory</button>
+    <button type="button" class="secondary" onclick="window.addNewProduct?.()">＋ Add product</button>
   </div>
 
   <div class="stats">
@@ -100,7 +156,7 @@
       <div class="stat" id="stat-products">—</div>
     </div>
     <div class="card">
-      <div class="muted">Low-stock items</div>
+      <div class="muted">Low-stock items (≤ 5)</div>
       <div class="stat" id="stat-low-stock">—</div>
     </div>
     <div class="card">
@@ -110,135 +166,173 @@
   </div>
 
   <section>
-    <h2>📦 Inventory</h2>
-    <input id="inventory-search" placeholder="Search product or shop">
+    <h2>Inventory</h2>
+    <p class="muted">Live product list from Supabase.</p>
+
+    <input id="inventory-search"
+      placeholder="Search product or shop…"
+      aria-label="Search inventory">
+
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Product</th><th>Shop</th><th>Price</th>
-            <th>Stock</th><th>Availability</th>
+            <th>Product</th>
+            <th>Shop</th>
+            <th>Price</th>
+            <th>Stock</th>
+            <th>Availability</th>
           </tr>
         </thead>
         <tbody id="inventory-body">
-          <tr><td colspan="5">Connecting to inventory…</td></tr>
+          <tr><td colspan="5">Connecting…</td></tr>
         </tbody>
       </table>
     </div>
-    <p id="inventory-status" role="status">Loading products…</p>
-    <button onclick="window.addNewProduct?.()">Add product</button>
-    <button class="secondary" onclick="window.checkLowStock?.()">Low-stock alerts</button>
-    <button class="secondary" onclick="window.exportInventoryCSV?.()">Export inventory</button>
-    <button class="secondary" onclick="window.showInventoryReport?.()">Inventory report</button>
+
+    <p id="inventory-status" role="status">Connecting to database…</p>
+    <button type="button" onclick="window.addNewProduct?.()">Add product</button>
+    <button type="button" class="secondary" onclick="window.checkLowStock?.()">Low-stock alert</button>
+    <button type="button" class="secondary" onclick="window.exportInventoryCSV?.()">Export inventory CSV</button>
+    <button type="button" class="secondary" onclick="window.showInventoryReport?.()">Inventory report</button>
   </section>
 
   <section>
-    <h2>🛒 Orders & Customers</h2>
-    <button onclick="window.PKOrderManagement?.showDashboard?.()">Order management</button>
-    <button onclick="window.showOrderDelivery?.()">Delivery / pickup</button>
-    <button onclick="window.showOrderTracker?.()">Order tracker</button>
-    <button onclick="window.showCustomerInsights?.()">Customer insights</button>
-    <button onclick="window.showCustomerEngagement?.()">Customer engagement</button>
-    <button onclick="window.PKCustomerFeedback?.showDashboard?.()">Customer feedback</button>
-    <button onclick="window.showDailySummary?.()">Daily summary</button>
+    <h2>Orders & Customer Tools</h2>
+    <p>View orders and update their status.</p>
+
+    <button type="button"
+      onclick="window.PKOrderManagement?.showOrderManagement?.()">
+      Manage Orders
+    </button>
+
+    <button type="button" onclick="window.showOrderDelivery?.()">Delivery / Pickup Orders</button>
+    <button type="button" onclick="window.showOrderTracker?.()">Order Tracker</button>
+    <button type="button" onclick="window.showCustomerInsights?.()">Customer Insights</button>
+    <button type="button" onclick="window.showCustomerEngagement?.()">Customer Engagement</button>
+    <button type="button" onclick="window.PKCustomerFeedback?.showDashboard?.()">Customer Feedback</button>
+    <button type="button" onclick="window.showDailySummary?.()">Today's Summary</button>
   </section>
 
   <section>
-    <h2>⏳ Expiry Tracking & Alerts</h2>
-    <p>Track products nearing their expiry dates.</p>
-    <button onclick="window.PKExpiryTracking?.showExpiryDashboard?.()">Open expiry tracker</button>
-    <button class="secondary" onclick="window.checkExpiryAlerts?.()">Check expiry alerts</button>
+    <h2>Expiry Tracking & Alerts</h2>
+    <p>Record expiry dates and check items that are expired or expiring soon.</p>
+    <button type="button" onclick="window.PKExpiryTracking?.showExpiryDashboard?.()">Open Expiry Tracker</button>
+    <button type="button" class="secondary" onclick="window.checkExpiryAlerts?.()">Check Expiry Alerts</button>
     <p id="expiry-status" role="status"></p>
   </section>
 
   <section>
-    <h2>📊 Smart Inventory & Business</h2>
-    <button onclick="window.PKSmartInventory?.showLowStock?.()">Smart inventory</button>
-    <button onclick="window.showRestockSuggestions?.()">Restock suggestions</button>
-    <button onclick="window.showAIInsights?.()">AI insights</button>
-    <button onclick="window.showDiscountSuggestions?.()">Discount suggestions</button>
-    <button onclick="window.trackPriceChange?.()">Price tracking</button>
-    <button onclick="window.compareProducts?.()">Compare products</button>
-    <button onclick="window.calculateProductProfit?.()">Profit calculator</button>
-    <button onclick="window.showSalesAnalytics?.()">Sales analytics</button>
-    <button onclick="window.PKBusinessAnalytics?.showDashboard?.()">Business analytics</button>
-    <button onclick="window.manageBusinessExpenses?.()">Expenses</button>
-    <button onclick="window.showBusinessManagerSummary?.()">Business summary</button>
+    <h2>Smart Inventory & Pricing</h2>
+    <button type="button" onclick="window.PKSmartInventory?.showLowStock?.()">Smart Stock Insights</button>
+    <button type="button" onclick="window.showRestockSuggestions?.()">Restock Suggestions</button>
+    <button type="button" onclick="window.showAIInsights?.()">AI Inventory Insights</button>
+    <button type="button" onclick="window.showDiscountSuggestions?.()">Discount Suggestions</button>
+    <button type="button" onclick="window.trackPriceChange?.()">Track Price Change</button>
+    <button type="button" onclick="window.compareProducts?.()">Compare Products</button>
+    <button type="button" onclick="window.calculateProductProfit?.()">Product Profit Calculator</button>
+    <button type="button" onclick="window.showSalesAnalytics?.()">Sales Analytics</button>
+    <button type="button" onclick="window.PKBusinessAnalytics?.showDashboard?.()">Business Analytics</button>
+    <button type="button" onclick="window.manageBusinessExpenses?.()">Manage Expenses</button>
+    <button type="button" onclick="window.showBusinessManagerSummary?.()">Business Summary</button>
   </section>
 
   <section>
-    <h2>🤝 Shared Wholesale Purchasing</h2>
-    <p>Coordinate bulk purchases with other shopkeepers.</p>
-    <button id="create-purchase-button">Create purchase request</button>
-    <button class="secondary" id="browse-purchases-button"
+    <h2>Shared Wholesale Purchasing</h2>
+    <p>Coordinate bulk purchases with nearby shopkeepers.</p>
+
+    <button type="button" id="create-purchase-button">Create Purchase Request</button>
+    <button type="button" class="secondary" id="browse-purchases-button"
       onclick="document.getElementById('purchase-list')?.scrollIntoView({behavior:'smooth'})">
-      Browse requests
+      Browse Requests
     </button>
 
     <div id="purchase-workspace" class="hidden">
       <form id="purchase-form">
-        <label>Product<br><input id="bulk-product" required placeholder="e.g. rice"></label><br>
-        <label>Quantity<br><input id="bulk-quantity" required type="number" min="1"></label><br>
+        <label>Product<br>
+          <input id="bulk-product" required placeholder="e.g. rice">
+        </label><br>
+
+        <label>Total quantity<br>
+          <input id="bulk-quantity" required type="number" min="1" placeholder="Quantity">
+        </label><br>
+
         <label>Unit<br>
           <select id="bulk-unit">
-            <option>kg</option><option>litre</option>
-            <option>pieces</option><option>bags</option>
+            <option>kg</option>
+            <option>litre</option>
+            <option>pieces</option>
+            <option>bags</option>
           </select>
         </label><br>
-        <label>Notes<br><textarea id="bulk-notes" placeholder="Supplier or target price"></textarea></label><br>
-        <button type="submit">Save request</button>
+
+        <label>Notes<br>
+          <textarea id="bulk-notes" placeholder="Preferred supplier / target price"></textarea>
+        </label><br>
+
+        <button type="submit">Save Request</button>
         <button type="button" class="secondary" id="cancel-purchase-button">Cancel</button>
       </form>
     </div>
+
     <p id="purchase-status" role="status"></p>
     <div id="purchase-list"></div>
   </section>
 
   <section>
-    <h2>🚚 Suppliers, Voice & Backup</h2>
-    <button onclick="window.manageSupplierHub?.()">Supplier hub</button>
-    <button onclick="window.manageSupplierContacts?.()">Supplier contacts</button>
-    <button onclick="window.PKSupplierManagement?.showDashboard?.()">Supplier management</button>
-    <button onclick="window.startVoiceAssistant?.()">Voice assistant</button>
-    <button id="voice-stock-button" onclick="window.startVoiceStock?.()">Voice stock entry</button>
-    <p id="voice-stock-status" role="status"></p>
-    <button onclick="window.backupInventory?.()">Backup / export</button>
-    <button onclick="window.showRewards?.()">Rewards / points</button>
+    <h2>Suppliers, Voice & Backup</h2>
+    <button type="button" onclick="window.manageSupplierHub?.()">Supplier Hub</button>
+    <button type="button" onclick="window.manageSupplierContacts?.()">Supplier Contacts</button>
+    <button type="button" onclick="window.PKSupplierManagement?.showDashboard?.()">Supplier Management</button>
+    <button type="button" onclick="window.startVoiceAssistant?.()">Voice Assistant</button>
+    <button type="button" id="voice-stock-button" onclick="window.startVoiceStock?.()">Voice Stock Entry</button>
+    <span id="voice-stock-status" role="status"></span>
+    <button type="button" onclick="window.backupInventory?.()">Backup / Export</button>
+    <button type="button" onclick="window.exportInventoryCSV?.()">Download Inventory CSV</button>
+    <button type="button" onclick="window.showRewards?.()">Rewards / Points</button>
   </section>
 
   <section>
-    <h2>🌐 Tamil / English</h2>
-    <p class="muted">Switch languages using the language support module.</p>
-    <button onclick="window.PKLanguageSupport?.toggle?.()">Tamil / English</button>
+    <h2>Local Language</h2>
+    <p class="muted">Tamil / English language tools, when available.</p>
+    <button type="button" onclick="window.PKLanguageSupport?.toggle?.()">Tamil / English</button>
   </section>
 
   <p class="muted">
-    Some tools require their matching Supabase tables and permissions.
-    Loading a script alone does not configure database access.
+    Some features may require additional database tables, columns or permissions.
   </p>
 </main>
 
+<!-- Load Supabase before all scripts that use the database. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
+
+<!-- Inventory -->
 <script src="js/shopkeeper.js"></script>
-<script src="js/bulk-purchase.js"></script>
-<script src="js/expiry-tracking.js"></script>
 <script src="js/add-product.js"></script>
 <script src="js/manage-products.js"></script>
 <script src="js/low-stock.js"></script>
-<script src="js/expiry-alerts.js"></script>
 <script src="js/smart-inventory.js"></script>
 <script src="js/restock-suggestions.js"></script>
+<script src="js/expiry-tracking.js"></script>
+<script src="js/expiry-alerts.js"></script>
+<script src="js/inventory-report.js"></script>
+<script src="js/backup-export.js"></script>
+
+<!-- Shared purchasing -->
+<script src="js/bulk-purchase.js"></script>
+
+<!-- Orders -->
+<script src="js/order-management.js"></script>
+<script src="js/order-delivery.js"></script>
+<script src="js/order-tracker.js"></script>
+
+<!-- Business tools -->
 <script src="js/ai-insights.js"></script>
 <script src="js/discount-suggestions.js"></script>
 <script src="js/price-change-tracker.js"></script>
 <script src="js/product-comparison.js"></script>
 <script src="js/profit-calculator.js"></script>
-<script src="js/inventory-report.js"></script>
-<script src="js/backup-export.js"></script>
-<script src="js/order-management.js"></script>
-<script src="js/order-delivery.js"></script>
-<script src="js/order-tracker.js"></script>
 <script src="js/customer-insights.js"></script>
 <script src="js/customer-engagement.js"></script>
 <script src="js/customer-feedback.js"></script>
@@ -246,6 +340,8 @@
 <script src="js/sales-analytics.js"></script>
 <script src="js/business-analytics.js"></script>
 <script src="js/business-manager.js"></script>
+
+<!-- Suppliers and innovations -->
 <script src="js/supplier-management.js"></script>
 <script src="js/supplier-hub.js"></script>
 <script src="js/supplier-contact.js"></script>
