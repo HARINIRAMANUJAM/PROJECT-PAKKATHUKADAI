@@ -1,0 +1,82 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Your Order | Pakkathu Kadai</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f7f5;
+      color: #24352b;
+    }
+    header {
+      background: #176b45;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    main {
+      max-width: 560px;
+      margin: 35px auto;
+      padding: 24px;
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 5px 22px #00000010;
+    }
+    label { display: block; margin-top: 16px; font-weight: 600; }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 7px;
+      border: 1px solid #ccd5ce;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 13px;
+      margin-top: 20px;
+      background: #176b45;
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #order-tracking-result { margin-top: 20px; overflow-wrap: anywhere; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Pakkathu Kadai</h1>
+    <p>Track your order</p>
+  </header>
+
+  <main>
+    <h2>Order status</h2>
+    <p>Enter your order ID and phone number to check your order.</p>
+
+    <form id="order-tracking-form">
+      <label for="tracking-order-id">Order ID</label>
+      <input id="tracking-order-id" type="text" required>
+
+      <label for="tracking-phone">Phone number used at checkout</label>
+      <input id="tracking-phone" type="tel" required>
+
+      <button type="submit">Track Order</button>
+    </form>
+
+    <div id="order-tracking-result" aria-live="polite"></div>
+    <p><a href="index.html">Back to customer store</a></p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/order-tracker.js"></script>
+</body>
+</html>
