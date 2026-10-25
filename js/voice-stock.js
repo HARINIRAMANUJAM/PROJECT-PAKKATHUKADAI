@@ -12,85 +12,85 @@
 
   if (!SpeechRecognition) {
     button.disabled = true;
-    output.textContent =
-      "Voice input is not supported here. Try Chrome or Edge.";
+    output.textContent = "Voice input needs Chrome or Edge.";
     return;
   }
 
-  // Add a language selector without changing shopkeeper.html.
-  const selector = document.createElement("select");
-  selector.id = "voice-stock-language";
-  selector.setAttribute("aria-label", "Voice input language");
-  selector.style.width = "auto";
-  selector.style.margin = "4px";
+  let selector = document.getElementById("voice-stock-language");
 
-  [
-    ["ta-IN", "தமிழ் (Tamil)"],
-    ["en-IN", "English (India)"]
-  ].forEach(([value, label]) => {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    selector.appendChild(option);
-  });
+  if (!selector) {
+    selector = document.createElement("select");
+    selector.id = "voice-stock-language";
+    selector.setAttribute("aria-label", "Voice language");
 
-  button.parentNode.insertBefore(selector, button);
+    [
+      ["ta-IN", "தமிழ் (Tamil)"],
+      ["en-IN", "English (India)"]
+    ].forEach(([value, label]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      selector.appendChild(option);
+    });
 
-  function field(id) {
-    return document.getElementById(id);
+    button.parentNode.insertBefore(selector, button);
   }
 
+  const field = id => document.getElementById(id);
+
   function fillProductForm(transcript) {
-    const text = transcript.trim();
-    if (!text) return;
-
-    // Extract numbers spoken as digits, e.g. "40 rupees, 20 kg".
-    const numbers = text.match(/\d+(?:\.\d+)?/g) || [];
-
-    // Remove common command words and numeric values to get the name.
-    const name = text
-      .replace(/\d+(?:\.\d+)?/g, " ")
-      .replace(
-        /\b(add|product|price|rupees?|rs|quantity|stock|kg|kilograms?|grams?|g|litres?|liters?|ml|packets?|pieces?|piece|boxes?|box|dozen|in|for|at|of|is|விலை|ரூபாய்|ரூ|கிலோ|கிராம்|லிட்டர்|மில்லி|பாக்கெட்|பீஸ்|சேர்க்கவும்|சேர்|எண்ணிக்கை|அளவு)\b/gi,
-        " "
-      )
-      .replace(/[,.]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    if (name) field("product-name").value = name;
-
-    // First number = price; second number = quantity.
-    if (numbers[0]) field("product-price").value = numbers[0];
-    if (numbers[1]) field("product-quantity").value = numbers[1];
-
-    const lower = text.toLowerCase();
-
-    if (/\b(kg|kilogram|kilograms)\b|கிலோ/i.test(lower)) {
-      field("product-unit").value = "kg";
-    } else if (/\b(g|gram|grams)\b|கிராம்/i.test(lower)) {
-      field("product-unit").value = "g";
-    } else if (/\b(litre|litres|liter|liters)\b|லிட்டர்/i.test(lower)) {
-      field("product-unit").value = "litre";
-    } else if (/\b(ml|millilitre|milliliter)\b|மில்லி/i.test(lower)) {
-      field("product-unit").value = "ml";
-    } else if (/\b(packet|packets)\b|பாக்கெட்/i.test(lower)) {
-      field("product-unit").value = "packet";
-    } else if (/\b(box|boxes)\b/i.test(lower)) {
-      field("product-unit").value = "box";
-    } else if (/\b(dozen)\b/i.test(lower)) {
-      field("product-unit").value = "dozen";
-    } else if (/\b(piece|pieces)\b|பீஸ்/i.test(lower)) {
-      field("product-unit").value = "piece";
-    }
-
-    // Open the existing form; never save automatically.
+    // Open the form FIRST; this can reset its fields.
     if (typeof window.addNewProduct === "function") {
       window.addNewProduct();
     }
 
+    const nameField = field("product-name");
+    const priceField = field("product-price");
+    const quantityField = field("product-quantity");
+    const unitField = field("product-unit");
+
+    if (!nameField || !priceField || !quantityField || !unitField) {
+      output.textContent = "Product form fields were not found.";
+      return;
+    }
+
+    const text = transcript.trim();
+    const numbers = text.match(/\d+(?:\.\d+)?/g) || [];
+
+    // Keep Tamil letters; remove common command words and numeric values.
+    let name = text.replace(/\d+(?:\.\d+)?/g, " ");
+
+    name = name
+      .replace(/\b(add|product|price|rupees?|rs|quantity|stock|kg|kilograms?|grams?|litres?|liters?|ml|packets?|pieces?|piece|boxes?|box|dozen|in|for|at|of)\b/gi, " ")
+      .replace(/விலை|ரூபாய்|ரூ|கிலோ|கிராம்|லிட்டர்|மில்லி|பாக்கெட்|பீஸ்|சேர்க்கவும்|சேர்|எண்ணிக்கை|அளவு/g, " ")
+      .replace(/[,.]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (name) nameField.value = name;
+    if (numbers[0]) priceField.value = numbers[0];
+    if (numbers[1]) quantityField.value = numbers[1];
+
+    if (/\bkg\b|kilogram|கிலோ/i.test(text)) {
+      unitField.value = "kg";
+    } else if (/\bgrams?\b|\bg\b|கிராம்/i.test(text)) {
+      unitField.value = "g";
+    } else if (/\blitres?\b|\bliters?\b|லிட்டர்/i.test(text)) {
+      unitField.value = "litre";
+    } else if (/\bml\b|மில்லி/i.test(text)) {
+      unitField.value = "ml";
+    } else if (/\bpackets?\b|பாக்கெட்/i.test(text)) {
+      unitField.value = "packet";
+    } else if (/\bboxes?\b/i.test(text)) {
+      unitField.value = "box";
+    } else if (/\bdozen\b/i.test(text)) {
+      unitField.value = "dozen";
+    } else if (/\bpieces?\b|பீஸ்/i.test(text)) {
+      unitField.value = "piece";
+    }
+
     output.textContent =
-      `Recognised: "${text}". Check the fields, enter your shop name if needed, then press Save product.`;
+      `Recognised: "${text}". Check the filled fields and enter the shop name before saving.`;
   }
 
   button.addEventListener("click", () => {
@@ -106,13 +106,11 @@
         : "Listening… Speak now.";
 
     recognition.onresult = event => {
-      const transcript = event.results[0][0].transcript;
-      fillProductForm(transcript);
+      fillProductForm(event.results[0][0].transcript);
     };
 
     recognition.onerror = event => {
-      output.textContent =
-        `Voice error: ${event.error}. Please try again or enter details manually.`;
+      output.textContent = `Voice error: ${event.error}. Try again.`;
     };
 
     recognition.onend = () => {
@@ -123,7 +121,8 @@
       recognition.start();
     } catch (error) {
       button.disabled = false;
-      output.textContent = "Could not start voice input. Please try again.";
+      output.textContent = "Could not start voice input. Try again.";
     }
   });
 })();
+
