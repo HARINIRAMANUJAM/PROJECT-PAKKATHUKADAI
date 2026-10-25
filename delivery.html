@@ -31,6 +31,7 @@
 
     .delivery-card select,
     .delivery-card button {
+      box-sizing: border-box;
       padding: 10px;
       margin: 8px 8px 8px 0;
       border-radius: 6px;
@@ -81,13 +82,9 @@
     <section id="delivery-orders"></section>
   </main>
 
-  <!-- Load Supabase library FIRST -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
 
-  <!-- Initialize the existing Supabase client SECOND -->
-  <script src="/PROJECT-PAKKATHUKADAI/js/supabase.js"></script>
-
-  <!-- Dashboard logic THIRD -->
   <script>
     (() => {
       "use strict";
@@ -135,6 +132,28 @@
         return escapeHTML(items || "No item details");
       }
 
+      async function verifyDeliveryRole() {
+        const { data: userData, error: userError } =
+          await client.auth.getUser();
+
+        if (userError || !userData.user) {
+          return false;
+        }
+
+        const { data: roleData, error: roleError } = await client
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userData.user.id)
+          .maybeSingle();
+
+        if (roleError) {
+          console.error("Role verification error:", roleError);
+          throw new Error("Could not verify delivery account role.");
+        }
+
+        return roleData?.role === "delivery";
+      }
+
       async function loadOrders() {
         message.textContent = "Loading orders...";
         ordersContainer.replaceChildren();
@@ -166,7 +185,7 @@
             ? order.status
             : "pending";
 
-          const orderId = escapeHTML(order.id);
+          const safeOrderId = escapeHTML(order.id);
 
           const options = allowedStatuses.map(option => `
             <option value="${option}" ${
@@ -175,7 +194,7 @@
           `).join("");
 
           card.innerHTML = `
-            <h3>Order #${orderId}</h3>
+            <h3>Order #${safeOrderId}</h3>
             <p><strong>Customer:</strong>
               ${escapeHTML(order.customer_name || "Not provided")}
             </p>
@@ -184,6 +203,9 @@
             </p>
             <p><strong>Delivery address:</strong>
               ${escapeHTML(order.delivery_address || "Not provided")}
+            </p>
+            <p><strong>Fulfilment:</strong>
+              ${escapeHTML(order.delivery_method || "Not specified")}
             </p>
             <p><strong>Items:</strong>
               ${displayItems(order.items)}
@@ -196,8 +218,8 @@
                 ${escapeHTML(status.replaceAll("_", " "))}
               </span>
             </p>
-            <label for="status-${orderId}">Update status:</label>
-            <select id="status-${orderId}">${options}</select>
+            <label for="status-${safeOrderId}">Update status:</label>
+            <select id="status-${safeOrderId}">${options}</select>
             <button type="button">Save status</button>
             <p class="order-message" aria-live="polite"></p>
           `;
@@ -213,24 +235,11 @@
             resultMessage.textContent = "Saving status...";
 
             try {
-              const { data: userData, error: userError } =
-                await client.auth.getUser();
+              const hasAccess = await verifyDeliveryRole();
 
-              if (userError || !userData.user) {
+              if (!hasAccess) {
                 resultMessage.textContent =
-                  "Your session has expired. Please log in again.";
-                return;
-              }
-
-              const { data: roleData, error: roleError } = await client
-                .from("user_roles")
-                .select("role")
-                .eq("user_id", userData.user.id)
-                .maybeSingle();
-
-              if (roleError || roleData?.role !== "delivery") {
-                resultMessage.textContent =
-                  "Delivery access could not be verified.";
+                  "Delivery access could not be verified. Please log in again.";
                 return;
               }
 
@@ -244,7 +253,7 @@
               if (updateError) {
                 console.error("Status update error:", updateError);
                 resultMessage.textContent =
-                  "Update failed. Check the Console for the exact error.";
+                  "Update failed. Check the Console and database policies.";
                 return;
               }
 
@@ -272,42 +281,24 @@
       }
 
       async function initialise() {
-        if (!client) {
+        if (!window.supabase || !client) {
           message.textContent =
-            "Connection failed. Check js/supabase.js and script loading.";
+            "Connection failed. Check the Supabase library and js/supabase.js.";
           console.error(
             "Supabase client missing:",
             !!window.supabase,
             !!window.supabaseClient
           );
+          logoutButton.disabled = true;
           return;
         }
 
         try {
-          const { data: userData, error: userError } =
-            await client.auth.getUser();
+          const hasAccess = await verifyDeliveryRole();
 
-          if (userError || !userData.user) {
-            message.textContent = "Please log in first.";
-            return;
-          }
-
-          const { data: roleData, error: roleError } = await client
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", userData.user.id)
-            .maybeSingle();
-
-          if (roleError) {
-            console.error("Role verification error:", roleError);
+          if (!hasAccess) {
             message.textContent =
-              "Could not verify your role. Check user_roles permissions.";
-            return;
-          }
-
-          if (roleData?.role !== "delivery") {
-            message.textContent =
-              "Access denied. Please use your delivery account.";
+              "Access denied. Please log in using your delivery account.";
             return;
           }
 
@@ -315,7 +306,7 @@
         } catch (error) {
           console.error("Dashboard initialization error:", error);
           message.textContent =
-            "Dashboard failed to initialize. Check the browser Console.";
+            error.message || "Dashboard failed to initialize.";
         }
       }
 
@@ -325,15 +316,24 @@
           return;
         }
 
-        const { error } = await client.auth.signOut();
+        logoutButton.disabled = true;
 
-        if (error) {
-          console.error("Logout error:", error);
+        try {
+          const { error } = await client.auth.signOut();
+
+          if (error) {
+            console.error("Logout error:", error);
+            message.textContent = "Logout failed. Please try again.";
+            logoutButton.disabled = false;
+            return;
+          }
+
+          window.location.href = "login.html";
+        } catch (error) {
+          console.error("Unexpected logout error:", error);
           message.textContent = "Logout failed. Please try again.";
-          return;
+          logoutButton.disabled = false;
         }
-
-        window.location.href = "login.html";
       });
 
       initialise();
