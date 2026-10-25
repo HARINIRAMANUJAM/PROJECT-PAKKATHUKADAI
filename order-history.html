@@ -1,0 +1,132 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Order History | Pakkathu Kadai</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .history-container {
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 20px;
+    }
+    .order-card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    .order-card h3 { margin-top: 0; }
+    .order-status { font-weight: bold; }
+    .muted { color: #666; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Pakkathu Kadai</h1>
+    <nav>
+      <a href="index.html">Customer Store</a> |
+      <a href="order-history.html">My Orders</a>
+    </nav>
+  </header>
+
+  <main class="history-container">
+    <h2>My Order History</h2>
+    <p id="history-message">Loading your orders...</p>
+    <section id="orders-list"></section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script>
+    (async () => {
+      const message = document.getElementById("history-message");
+      const list = document.getElementById("orders-list");
+      const db = window.supabaseClient;
+
+      if (!db) {
+        message.textContent = "Database connection failed. Please try again.";
+        return;
+      }
+
+      const { data: authData, error: authError } = await db.auth.getUser();
+
+      if (authError || !authData?.user) {
+        message.textContent = "Please log in to view your order history.";
+        return;
+      }
+
+      const { data: orders, error } = await db
+        .from("Orders")
+        .select("id, created_at, items, total, status, fulfilment_method")
+        .eq("user_id", authData.user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Order history error:", error);
+        message.textContent = "Unable to load orders. Please try again.";
+        return;
+      }
+
+      if (!orders || orders.length === 0) {
+        message.textContent = "No previous orders found for your account.";
+        return;
+      }
+
+      message.textContent = "";
+
+      orders.forEach(order => {
+        const card = document.createElement("article");
+        card.className = "order-card";
+
+        const title = document.createElement("h3");
+        title.textContent = "Order #" + order.id;
+        card.appendChild(title);
+
+        const date = document.createElement("p");
+        date.className = "muted";
+        date.textContent = order.created_at
+          ? new Date(order.created_at).toLocaleString()
+          : "Date unavailable";
+        card.appendChild(date);
+
+        const status = document.createElement("p");
+        status.className = "order-status";
+        status.textContent = "Status: " + (order.status || "Pending");
+        card.appendChild(status);
+
+        const fulfilment = document.createElement("p");
+        fulfilment.textContent =
+          "Fulfilment: " + (order.fulfilment_method || "Not specified");
+        card.appendChild(fulfilment);
+
+        const itemsHeading = document.createElement("p");
+        itemsHeading.textContent = "Items:";
+        card.appendChild(itemsHeading);
+
+        const itemsList = document.createElement("ul");
+        const items = Array.isArray(order.items) ? order.items : [];
+
+        items.forEach(item => {
+          const li = document.createElement("li");
+          li.textContent =
+            `${item.name || "Product"} × ${Number(item.quantity) || 0}`;
+          itemsList.appendChild(li);
+        });
+
+        card.appendChild(itemsList);
+
+        const total = document.createElement("p");
+        total.textContent = "Total: ₹" + (Number(order.total) || 0).toFixed(2);
+        card.appendChild(total);
+
+        list.appendChild(card);
+      });
+    })();
+  </script>
+</body>
+</html>
+```
