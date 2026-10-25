@@ -1,10 +1,22 @@
+
 (() => {
   "use strict";
 
-  const $ = id => document.getElementById(id);
   const db = window.supabaseClient;
 
-  function readCart() {
+  const form = document.getElementById("checkout-form");
+  const itemsContainer = document.getElementById("checkout-items");
+  const totalElement = document.getElementById("checkout-total");
+  const statusElement = document.getElementById("checkout-status");
+  const submitButton = document.getElementById("place-order-button");
+
+  if (!form || !itemsContainer || !totalElement ||
+      !statusElement || !submitButton) {
+    console.error("Checkout setup error: required HTML elements are missing.");
+    return;
+  }
+
+  function getCart() {
     try {
       const cart = JSON.parse(
         sessionStorage.getItem("pakkathuCart") || "[]"
@@ -15,195 +27,187 @@
     }
   }
 
-  function itemName(item) {
-    return item.name || item.product_name || "Product";
+  function getTotal(cart) {
+    return cart.reduce((sum, item) => {
+      const price = Number(item.price);
+      const quantity = Number(item.quantity);
+
+      if (
+        !Number.isFinite(price) ||
+        !Number.isFinite(quantity) ||
+        price < 0 ||
+        quantity <= 0
+      ) {
+        return sum;
+      }
+
+      return sum + price * quantity;
+    }, 0);
   }
 
-  function itemPrice(item) {
-    return Number(item.price || 0);
-  }
+  function renderCart() {
+    const cart = getCart();
+    itemsContainer.replaceChildren();
 
-  function itemQuantity(item) {
-    return Number(item.quantity || item.qty || 1);
-  }
-
-  function renderSummary() {
-    const cart = readCart();
-    const container = $("checkout-items");
-    const totalElement = $("checkout-total");
-
-    if (!container || !totalElement) return;
-
-    if (!cart.length) {
-      container.innerHTML = "<p>Your cart is empty.</p>";
+    if (cart.length === 0) {
+      const message = document.createElement("p");
+      message.textContent = "Your cart is empty.";
+      itemsContainer.appendChild(message);
       totalElement.textContent = "₹0.00";
       return;
     }
 
-    container.replaceChildren();
-    let total = 0;
+    cart.forEach((item) => {
+      const row = document.createElement("p");
+      const name = String(item.name || "Product");
+      const quantity = Number(item.quantity) || 0;
+      const price = Number(item.price) || 0;
 
-    cart.forEach(item => {
-      const price = itemPrice(item);
-      const quantity = itemQuantity(item);
-      const subtotal = price * quantity;
-      total += subtotal;
+      row.textContent =
+        `${name} × ${quantity} — ₹${(price * quantity).toFixed(2)}`;
 
-      const line = document.createElement("p");
-      line.textContent =
-        `${itemName(item)} × ${quantity} — ₹${subtotal.toFixed(2)}`;
-      container.appendChild(line);
+      itemsContainer.appendChild(row);
     });
 
-    totalElement.textContent = `₹${total.toFixed(2)}`;
+    totalElement.textContent = `₹${getTotal(cart).toFixed(2)}`;
   }
 
-  function updateAddressVisibility() {
-    const method = $("fulfilment-method");
-    const section = $("delivery-address-section");
-    const address = $("delivery-address");
+  function getFulfilmentMethod() {
+    const selected = form.querySelector(
+      '[name="fulfilment_method"]:checked, ' +
+      '[name="fulfilment"]:checked'
+    );
 
-    if (!method || !section || !address) return;
+    const control = selected || form.querySelector(
+      'select[name="fulfilment_method"], ' +
+      'select[name="fulfilment"], ' +
+      '#fulfilment-method, #fulfilment'
+    );
 
-    const delivery = method.value === "Delivery";
-    section.hidden = !delivery;
-    address.required = delivery;
+    const value = String(control?.value || "Delivery")
+      .trim()
+      .toLowerCase();
+
+    return value === "pickup" ? "Pickup" : "Delivery";
   }
 
-  function setStatus(message, isError = false) {
-    const status = $("checkout-status");
-
-    if (!status) {
-      alert(message);
-      return;
-    }
-
-    status.textContent = message;
-    status.style.color = isError ? "red" : "";
+  function showStatus(message, isError = false) {
+    statusElement.textContent = message;
+    statusElement.style.color = isError ? "red" : "";
   }
 
   async function placeOrder(event) {
     event.preventDefault();
 
-    if (!db) {
-      setStatus(
-        "Supabase is not connected. Refresh and try again.",
-        true
-      );
+    if (!window.supabaseClient) {
+      showStatus("Database connection unavailable. Please try again.", true);
       return;
     }
 
-    const name = $("customer-name")?.value.trim() || "";
-    const phone = $("customer-phone")?.value.trim() || "";
-    const fulfilment =
-      $("fulfilment-method")?.value || "Pickup";
-    const address =
-      $("delivery-address")?.value.trim() || "";
-    const cart = readCart();
+    const cart = getCart();
+
+    if (cart.length === 0) {
+      showStatus("Your cart is empty.", true);
+      renderCart();
+      return;
+    }
+
+    const name = document.getElementById("customer-name")
+      ?.value.trim();
+
+    const phone = document.getElementById("customer-phone")
+      ?.value.trim();
+
+    const address = document.getElementById("delivery-address")
+      ?.value.trim();
+
+    const fulfilment = getFulfilmentMethod();
 
     if (!name || !phone) {
-      setStatus("Enter your name and phone number.", true);
-      return;
-    }
-
-    if (!["Pickup", "Delivery"].includes(fulfilment)) {
-      setStatus("Choose Pickup or Delivery.", true);
+      showStatus("Please enter your name and phone number.", true);
       return;
     }
 
     if (fulfilment === "Delivery" && !address) {
-      setStatus("Enter your delivery address.", true);
+      showStatus("Please enter your delivery address.", true);
       return;
     }
 
-    if (!cart.length) {
-      setStatus(
-        "Your cart is empty. Add products before checkout.",
-        true
-      );
-      return;
-    }
-
-    const items = cart.map(item => ({
-      id: item.id ?? null,
-      name: itemName(item),
-      price: itemPrice(item),
-      quantity: itemQuantity(item),
-      shop_name: item.shop_name || item.shopName || ""
-    }));
-
-    const total = items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
+    const total = getTotal(cart);
 
     if (
-      items.some(item =>
-        !Number.isFinite(item.price) ||
-        item.price < 0 ||
-        !Number.isFinite(item.quantity) ||
-        item.quantity <= 0
+      !Number.isFinite(total) ||
+      cart.some((item) =>
+        !item.name ||
+        !Number.isFinite(Number(item.price)) ||
+        !Number.isFinite(Number(item.quantity)) ||
+        Number(item.price) < 0 ||
+        Number(item.quantity) <= 0
       )
     ) {
-      setStatus(
-        "A cart item has an invalid price or quantity.",
-        true
-      );
+      showStatus("Your cart contains invalid items. Please check it.", true);
       return;
     }
 
-    const button = $("place-order-button");
-    if (button) button.disabled = true;
-
-    setStatus("Placing your order...");
+    submitButton.disabled = true;
+    showStatus("Placing your order...");
 
     try {
+      // Require a valid authenticated Supabase user.
+      const { data: authData, error: authError } =
+        await db.auth.getUser();
+
+      if (authError || !authData?.user?.id) {
+        showStatus(
+          "Please log in again before placing your order.",
+          true
+        );
+        submitButton.disabled = false;
+        return;
+      }
+
+      // Link this order to the authenticated customer.
       const order = {
+        user_id: authData.user.id,
         customer_name: name,
-        phone,
+        phone: phone,
         delivery_address:
           fulfilment === "Delivery" ? address : "",
-        items,
-        total,
+        items: cart,
+        total: total,
         status: "Pending",
-        delivery_method: fulfilment
+        fulfilment_method: fulfilment
       };
 
-      const { error } = await db
+      const { error: insertError } = await db
         .from("Orders")
         .insert(order);
 
-      if (error) throw error;
+      if (insertError) {
+        throw insertError;
+      }
 
       sessionStorage.removeItem("pakkathuCart");
-      renderSummary();
-      $("checkout-form")?.reset();
-      updateAddressVisibility();
+      form.reset();
+      renderCart();
 
-      setStatus(
-        `Order placed successfully! ${fulfilment} selected. Total: ₹${total.toFixed(2)}`
-      );
+      showStatus("Order placed successfully!");
+
+      // Prevent duplicate submission of the completed order.
+      submitButton.disabled = true;
     } catch (error) {
       console.error("Checkout error:", error);
-      setStatus(`Order failed: ${error.message}`, true);
-    } finally {
-      if (button) button.disabled = false;
+
+      showStatus(
+        "Order failed: " +
+          (error?.message || "Please try again."),
+        true
+      );
+
+      submitButton.disabled = false;
     }
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    renderSummary();
-
-    $("fulfilment-method")?.addEventListener(
-      "change",
-      updateAddressVisibility
-    );
-
-    $("checkout-form")?.addEventListener(
-      "submit",
-      placeOrder
-    );
-
-    updateAddressVisibility();
-  });
+  form.addEventListener("submit", placeOrder);
+  renderCart();
 })();
