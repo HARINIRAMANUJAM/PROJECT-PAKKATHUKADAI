@@ -24,6 +24,35 @@ document.addEventListener("DOMContentLoaded", () => {
     const unitInput = prompt("Enter unit (kg, litre, piece, etc.):");
     if (!unitInput || !unitInput.trim()) return;
 
+    // Optional expiry date
+    const expiryInput = prompt(
+      "Enter expiry date (YYYY-MM-DD), or leave blank if not applicable:"
+    );
+
+    if (expiryInput === null) return;
+
+    const expiryDate = expiryInput.trim();
+
+    if (
+      expiryDate &&
+      !/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)
+    ) {
+      alert("Enter the expiry date in YYYY-MM-DD format.");
+      return;
+    }
+
+    if (expiryDate) {
+      const parsedDate = new Date(`${expiryDate}T00:00:00Z`);
+
+      if (
+        Number.isNaN(parsedDate.getTime()) ||
+        parsedDate.toISOString().slice(0, 10) !== expiryDate
+      ) {
+        alert("Enter a valid calendar date.");
+        return;
+      }
+    }
+
     const price = Number(priceInput);
     const quantity = Number(quantityInput);
 
@@ -37,15 +66,18 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const product = {
+      name: name.trim(),
+      price,
+      quantity,
+      shop_name: shopName.trim(),
+      unit: unitInput.trim(),
+      expiry_date: expiryDate || null
+    };
+
     const { error } = await client
       .from("Products")
-      .insert([{
-        name: name.trim(),
-        price,
-        quantity,
-        shop_name: shopName.trim(),
-        unit: unitInput.trim()
-      }]);
+      .insert([product]);
 
     if (error) {
       alert("Could not add product: " + error.message);
