@@ -101,11 +101,8 @@
     </form>
   </main>
 
-  <!-- Load Supabase library first -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <!-- Load the shared client from the project folder -->
-  <script src="/PROJECT-PAKKATHUKADAI/js/supabase.js"></script>
+  <script src="js/supabase.js"></script>
 
   <script>
     (() => {
@@ -115,8 +112,6 @@
       const message = document.getElementById("login-message");
       const button = document.getElementById("login-button");
 
-      const PROJECT_PATH = "/PROJECT-PAKKATHUKADAI/";
-
       function showMessage(text) {
         message.textContent = text;
       }
@@ -125,8 +120,8 @@
 
       if (!window.supabase) {
         showMessage("Supabase library failed to load. Refresh and try again.");
-        console.error("Supabase CDN library is missing.");
         button.disabled = true;
+        console.error("Supabase CDN library is missing.");
         return;
       }
 
@@ -134,8 +129,8 @@
         showMessage(
           "Supabase client failed to initialize. Check js/supabase.js."
         );
-        console.error("Supabase client is missing.");
         button.disabled = true;
+        console.error("Supabase client is missing.");
         return;
       }
 
@@ -201,8 +196,7 @@
             admin: "admin.html"
           };
 
-          window.location.href =
-            PROJECT_PATH + destinations[selectedRole];
+          window.location.href = destinations[selectedRole];
 
         } catch (error) {
           console.error("Unexpected login error:", error);
