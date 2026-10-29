@@ -28,7 +28,7 @@
     }
     .number { font-size: 28px; font-weight: bold; color: #176b45; }
     .panel { margin-top: 20px; overflow-x: auto; }
-    button, select {
+    button {
       padding: 9px 12px; border: 1px solid #ccc;
       border-radius: 7px; cursor: pointer; background: white;
     }
@@ -81,10 +81,14 @@
   </section>
 
   <section class="panel">
+    <h2>Registered accounts</h2>
+    <p class="muted">Accounts created through Create Account appear here with their role and approval status.</p>
+    <div id="accounts-area" class="muted">Loading accounts...</div>
+  </section>
+
+  <section class="panel">
     <h2>Platform roles</h2>
-    <p class="muted">
-      Counts come from user_roles. User email addresses are not exposed here.
-    </p>
+    <p class="muted">Counts come from profiles. User email addresses are not displayed.</p>
     <div id="roles-area">Loading...</div>
   </section>
 </main>
@@ -97,6 +101,7 @@
   const message = document.getElementById("message");
   const ordersArea = document.getElementById("orders-area");
   const rolesArea = document.getElementById("roles-area");
+  const accountsArea = document.getElementById("accounts-area");
 
   if (!client) {
     message.textContent = "Supabase connection failed.";
@@ -108,7 +113,8 @@
     location.href = "login.html";
   };
 
-  const { data: authData, error: authError } = await client.auth.getUser();
+  const { data: authData, error: authError } =
+    await client.auth.getUser();
   const user = authData?.user;
 
   if (authError || !user) {
@@ -117,12 +123,13 @@
   }
 
   const { data: roleRow, error: roleError } = await client
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", user.id)
+    .from("profiles")
+    .select("role,status")
+    .eq("id", user.id)
     .maybeSingle();
 
-  if (roleError || roleRow?.role !== "admin") {
+  if (roleError || roleRow?.role !== "admin" ||
+      roleRow?.status !== "active") {
     message.textContent = "Access denied. Admin account required.";
     return;
   }
@@ -135,11 +142,18 @@
   async function loadDashboard() {
     message.textContent = "Refreshing dashboard...";
 
-    const [productsResult, ordersResult, rolesResult] = await Promise.all([
-      client.from("Products").select("id", { count: "exact", head: true }),
-      client.from("Orders").select("*").order("created_at", { ascending: false }).limit(20),
-      client.from("user_roles").select("role")
-    ]);
+    const [productsResult, ordersResult, profilesResult] =
+      await Promise.all([
+        client.from("Products")
+          .select("id", { count: "exact", head: true }),
+        client.from("Orders")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(20),
+        client.from("profiles")
+          .select("id,full_name,role,status,shop_name,created_at")
+          .order("created_at", { ascending: false })
+      ]);
 
     if (productsResult.error) {
       document.getElementById("product-count").textContent = "Error";
@@ -150,33 +164,83 @@
 
     if (ordersResult.error) {
       document.getElementById("order-count").textContent = "Error";
-      ordersArea.textContent = "Cannot load orders: " + ordersResult.error.message;
+      ordersArea.textContent =
+        "Cannot load orders: " + ordersResult.error.message;
     } else {
       const orders = ordersResult.data || [];
       document.getElementById("order-count").textContent = orders.length;
       renderOrders(orders);
     }
 
-    if (rolesResult.error) {
-      rolesArea.textContent = "Cannot load role counts: " + rolesResult.error.message;
+    if (profilesResult.error) {
+      rolesArea.textContent =
+        "Cannot load profiles: " + profilesResult.error.message;
+      accountsArea.textContent =
+        "Cannot load accounts: " + profilesResult.error.message;
     } else {
-      const roles = rolesResult.data || [];
-      document.getElementById("shopkeeper-count").textContent =
-        roles.filter(r => r.role === "shopkeeper").length;
-      document.getElementById("delivery-count").textContent =
-        roles.filter(r => r.role === "delivery").length;
+      const profiles = profilesResult.data || [];
 
-      rolesArea.textContent = "Customers: " +
-        roles.filter(r => r.role === "customer").length +
-        " | Shopkeepers: " +
-        roles.filter(r => r.role === "shopkeeper").length +
-        " | Delivery partners: " +
-        roles.filter(r => r.role === "delivery").length +
-        " | Admins: " +
-        roles.filter(r => r.role === "admin").length;
+      document.getElementById("shopkeeper-count").textContent =
+        profiles.filter(p => p.role === "shopkeeper").length;
+      document.getElementById("delivery-count").textContent =
+        profiles.filter(p => p.role === "delivery").length;
+
+      rolesArea.textContent =
+        "Customers: " + profiles.filter(p => p.role === "customer").length +
+        " | Shopkeepers: " + profiles.filter(p => p.role === "shopkeeper").length +
+        " | Delivery partners: " + profiles.filter(p => p.role === "delivery").length +
+        " | Admins: " + profiles.filter(p => p.role === "admin").length;
+
+      renderAccounts(profiles);
     }
 
     message.textContent = "Dashboard refresh finished.";
+  }
+
+  function renderAccounts(accounts) {
+    if (!accounts.length) {
+      accountsArea.textContent = "No registered account profiles found.";
+      return;
+    }
+
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+
+    ["Name", "Shop", "Role", "Status", "Created"].forEach(label => {
+      const th = document.createElement("th");
+      th.textContent = label;
+      headRow.appendChild(th);
+    });
+
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+
+    accounts.forEach(account => {
+      const row = document.createElement("tr");
+      const values = [
+        account.full_name || "—",
+        account.shop_name || "—",
+        account.role || "—",
+        account.status || "—",
+        account.created_at
+          ? new Date(account.created_at).toLocaleString()
+          : "—"
+      ];
+
+      values.forEach(value => {
+        const td = document.createElement("td");
+        td.textContent = String(value);
+        row.appendChild(td);
+      });
+
+      tbody.appendChild(row);
+    });
+
+    table.appendChild(tbody);
+    accountsArea.replaceChildren(table);
   }
 
   function renderOrders(orders) {
@@ -199,6 +263,7 @@
     table.appendChild(thead);
 
     const tbody = document.createElement("tbody");
+
     orders.forEach(order => {
       const row = document.createElement("tr");
       const values = [
@@ -206,7 +271,9 @@
         order.customer_name || "—",
         order.total == null ? "—" : "₹" + order.total,
         order.status || "pending",
-        order.created_at ? new Date(order.created_at).toLocaleString() : "—"
+        order.created_at
+          ? new Date(order.created_at).toLocaleString()
+          : "—"
       ];
 
       values.forEach(value => {
