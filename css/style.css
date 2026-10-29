@@ -1,14 +1,14 @@
 :root {
-  --green: #B85C38;
-  --green-dark: #8F4027;
-  --green-light: #F3E2D7;
-  --cream: #F7F1E8;
-  --white: #ffffff;
-  --text: #352A24;
-  --muted: #786B62;
-  --border: #E7D9CE;
-  --orange: #D99A42;
-  --shadow: 0 8px 28px rgba(83, 48, 34, 0.08);
+  --green: #B85C70;
+  --green-dark: #914456;
+  --green-light: #F8E5E9;
+  --cream: #FFF8F5;
+  --white: #FFFFFF;
+  --text: #382A2D;
+  --muted: #806D71;
+  --border: #EBD8DC;
+  --orange: #D9A15B;
+  --shadow: 0 8px 28px rgba(100, 48, 62, 0.08);
 }
 
 * {
@@ -172,7 +172,7 @@ textarea:focus-visible {
   margin: 30px 5%;
   padding: 55px 6%;
   border-radius: 24px;
-  background: linear-gradient(120deg, #F3E2D7, #F7F1E8);
+  background: linear-gradient(120deg, #F8E5E9, #FFF3E9);
 }
 
 .hero-content {
@@ -409,7 +409,7 @@ textarea:focus-visible {
   margin: 0 5% 35px;
   padding: 35px 5%;
   border-radius: 20px;
-  background: #EFE3D5;
+  background: #F7EAE5;
 }
 
 .promotion-section > div:first-child,
@@ -427,20 +427,20 @@ textarea:focus-visible {
 #advertisement-area {
   min-width: 200px;
   padding: 22px;
-  border: 1px dashed #D8B6A3;
+  border: 1px dashed #D8B6C0;
   border-radius: 12px;
   background: white;
   font-size: 13px;
 }
 
 .rewards-section {
-  background: var(--green-light);
+  background: #F8E5E9;
 }
 
 .rewards-card {
   min-width: 190px;
   padding: 24px;
-  border: 1px solid #E4C7B7;
+  border: 1px solid #EBD0D8;
   border-radius: 16px;
   background: white;
 }
